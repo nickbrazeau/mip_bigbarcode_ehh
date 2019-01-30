@@ -7,13 +7,14 @@
 #.................................
 # imports
 #.................................
-#source("R/00_functions_temp_if_PR.R")
+source("R/00_functions_temp_if_PR.R")
 source("analyses/00_data_input.R")
-library(tidyverse)
+devtools::install_github("IDEELResearch/vcfR2plsmdmcalc")
+library(vcfR2plsmdmcalc)
 devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
-library(rehh)
-library(gridExtra)
+
+
 #.................................
 # datawrangle
 #.................................
@@ -26,7 +27,7 @@ drugres_ret_full$vcfRobj <- purrr::map(drugreslist, vcfRmanip::vcfR2SubsetChromP
 drugres_ret_full$nvar <- unlist(purrr::map(drugres_ret_full$vcfRobj, function(x){ return(nrow(x@gt)) }))
 
 drugres_ret_sub <- drugres_ret_full %>%
-  filter(nvar > 10)
+  filter(nvar > 20)
 
 #.................................
 # make map and haplotype files
@@ -41,7 +42,7 @@ getpmap.polarize <- function(x, chrommapdf = mapmodels){
     mutate(cMpred = map2_dbl(model, pos, ~predict(.x, newdata = data.frame(pos = .y))))
 
   fixtidy <- vcfR::extract_info_tidy(x)
-  refalt <- tibble::as_tibble(vcfR::getFIX(x)[,c("REF", "ALT")])
+  refalt <- tibble::as_tibble(getFIX(x)[,c("REF", "ALT")])
   alleles <- dplyr::bind_cols(refalt, fixtidy)
 
   ancderiv <- tibble::tibble(
@@ -93,11 +94,10 @@ rehhfile <- tibble(
   pmap_files = list.files(outdir, pattern = ".inp", full.names = T),
   name = stringr::str_replace(basename(thap_files), ".thap", ""))
 
-rehhfile$haplohh <- purrr::map2(rehhfile$thap_files, rehhfile$pmap_files,  ~rehh::data2haplohh(hap_file=.x, map_file=.y,
+rehhfile$haplohh <- purrr::map2(rehhfile$thap_files, rehhfile$pmap_files,  ~data2haplohh(hap_file=.x, map_file=.y,
                                                                                          haplotype.in.columns=TRUE, recode.allele = T,
                                                                                          min_perc_geno.hap=0,
-                                                                                         min_perc_geno.snp=0,
-                                                                                         min_maf = 0)) # !!!! tweaking required; turning them off for now
+                                                                                         min_perc_geno.snp=0)) # I don't want it's on the fly drops
 
 
 #.................................
@@ -111,60 +111,18 @@ drugres_ret_sub <- rehhfile %>%
 #.................................
 # calculate ihh
 #.................................
-drugres_ret_sub$scanhh <- purrr::map(drugres_ret_sub$haplohh, rehh::scan_hh,
+drugres_ret_sub$scanhh <- purrr::map(drugres_ret_sub$haplohh, scan_hh,
                                      limhaplo = 2,
-                                     limehh = 0.05)
+                                     limehh = 0.00)
 
 drugres_ret_sub$marker <- purrr::map(drugres_ret_sub$scanhh, function(x){
   maxmarker <- which(x$iES_Sabeti_et_al_2007 == max(x$iES_Sabeti_et_al_2007, na.rm = T))
   return(maxmarker)
 })
 
-drugres_ret_sub$marker[[2]] <- 11 # !!!! temp. this is an interesing site
-drugres_ret_sub$marker[[4]] <- 3 # !!!! temp. this is an interesing site
-#.................................
-# call ehh based on ihs value
-#.................................
-drugres_ret_sub$ehh <- map2(drugres_ret_sub$haplohh, drugres_ret_sub$marker, ~calc_ehh(
-  haplohh = .x,
-  mrk = .y,
-  limhaplo = 2,
-  limehh = 0.05,
-  plotehh = F)
-)
+# !!!!! temporary -- something odd going on with mdr1
+drugres_ret_sub$marker[[2]] <- 19
 
 
-drugres_ret_sub$pos <- map(drugres_ret_sub$haplohh, "position")
-drugres_ret_sub$ehh <- map(drugres_ret_sub$ehh, "ehh")
-drugres_ret_sub$ehh <- map(drugres_ret_sub$ehh, function(x){ return(as.data.frame(t(x))) } )
 
-drugres_ret_sub$ehhdf <- map2(drugres_ret_sub$pos, drugres_ret_sub$ehh, ~data.frame(pos = .x,
-                                                                                    ancestral = .y[,1],
-                                                                                    derived = .y[,2]))
-drugres_ret_sub$ehhdf <- map(drugres_ret_sub$ehhdf, function(x){
-  ret <- gather(x, key = "allele", value = "ehh", 2:3)
-  return(ret)
-})
-
-#.................................
-# make plots for ehh continous
-#.................................
-plotehh <- function(ehhdf, region, name){
-  plotObj <- ggplot() +
-    geom_line(data=ehhdf, aes(x=pos, y=ehh, colour = factor(allele), group = factor(allele))) +
-    scale_color_manual("Allele Status", values = c("#4575b4", "#d73027")) +
-    ggtitle(paste0("Gene ", name)) +
-    theme_bw() +
-    theme(plot.title = element_text(face = "bold", hjust = 0.5))
-}
-
-drugres_ret_sub$ehhplot <-  pmap(drugres_ret_sub[,c("name", "ehhdf")], plotehh)
-
-
-plotobj <- drugres_ret_sub$ehhplot
-n <- length(plotobj)
-nCol <- floor(sqrt(n))
-do.call("grid.arrange", c(plotobj, ncol=nCol))
-
-save(drugres_ret_sub, file = "analyses/data/drug_res_nopopstructure.rda")
 

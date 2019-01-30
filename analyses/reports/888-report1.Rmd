@@ -1,0 +1,119 @@
+--- 
+title: "EHH First Pass" 
+author: "Nicholas F. Brazeau" 
+date: "`r format(Sys.time(), '%B %d, %Y')`" 
+output: 
+  html_document: 
+    highlight: tango 
+    theme: lumen 
+    toc: yes 
+    toc_float: yes 
+    toc_depth: 3 
+    code_folding: hide
+editor_options:  
+  chunk_output_type: console
+--- 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, fig.width = 11, fig.height = 8)
+library(tidyverse)
+library(gridExtra)
+load("~/Documents/GitHub/mip_bigbarcode_ehh/analyses/data/drugregions_sub.rda")
+load("~/Documents/GitHub/mip_bigbarcode_ehh/analyses/data/drug_res_nopopstructure.rda")
+```
+
+
+## Approach
+
+### Data Wrangling Steps
+
+1. Convert MIPAnalyzer object to a vcfR object and then VCF
+	+ Bob accepted PR, this is now in `MIPAnalyzer` as MIPanalyzerbi2vcfR. Passed `vcf-validator`
+	+ One thing to consider, this function expects you to assign a "cutoff" on the Non-ref WSAF to assign the GT in the format column. This parameter will be sensitive to our results as any HET calls are coded as missing when making the haplotype files (see below) 
+2. Polarized VCF (i.e. assigned ancestral allele) using Andrew Morgan's `vcfdo` package. 
+3. Used genetic map that Andrew Morgan put together from Pfcross to impute cM position from our VCF base-pair positions
+4. Subset to monoclonal samples identified by OJ Watson (ongoing) 
+5. Regions set by OJ Watson
+	+ After discussion, we elected to keep this simple and use k-means clustering with a number of clusters that we wanted to see (i.e. 4 clusters in the DRC to get a N/E/S/W groups). 
+6. Pulled in Drug Resistance regions identifed by Oz and converted from 0-based to 1-based. Then set window as 50kb upstream and downstream of the start/end of the gene, respectfully. 
+	+ These regions are now also updated in the `rplasmodium` package 
+
+### Data Subset and Filtering
+
+#### Considering All Populations Together
+
+1. Subset VCF to drug loci regions 
+2. Drop any loci that does not have at **least 10 variants** in the 50kb (up/downstream) gene flanking regions
+	+ This may require some tweaking testing as this is an arbitary cutoff no my end 
+	+ A reasonable cutoff is needed and perhaps conditional on physical space (10 var 1 cM aren't informative but 10 var w/in 0.01 cM are) 
+
+#### Account for Population Substructure
+
+1. Subset VCF to drug loci and map regions (i.e. DRC North now has a VCF for all 23 drug-resistance loci Oz identified). Calling this "region-loci" moving forward. 
+2. Drop any region-loci that does not have at **least 10 variants** in the 50kb (up/downstream) gene flanking regions or 5 samples. 
+	+ See above for "tweaking" 
+
+#### `rehh` Filters
+
+1. `rehh` package has some default fiters (see [here](https://cran.r-project.org/web/packages/rehh/vignettes/rehh.pdf) wrt to `min_perc_geno.hap`, `min_perc_geno.snp`, and `min_maf` and less wrt `limehh` and `limhaplo`).
+	+ The "min" cutoffs for the `data2haplohh` function will require some "tweaking".  
+	+ The defaults I used for the _haplotype statistics_ of limit haplotype of 2 (can't go lower) and limit ehh of 0.05 are common. 
+	+ **NOTE, as a result of these `rehh` fitlers, additional samples and SNPs get dropped**. 
+
+
+### Notes
+
+vcfR manipulations are being hosted in the R-package `IDEELResearch/vcfRmanip` and includes tools to subset and alter the vcfR class. However, when writing out to disk with `vcfR::write.vcf` the compression strategy used does not agree with `bcftools` (wants `bgzip`). A quick fix is `gunzip vcf ; bgzip vcf`. 
+
+#### The Ugly
+
+Something odd/problematic is going on with _mdr1_ and _pfabcI3_ site and the haplotype statistic calculations when we consider all populations together. Similarly, something odd is on going on with the _mdr1_, _pfabcI3_, and _dhps_ site (the later for only some region-loci) and haplotype statistics when we account for population substructure. Wasn't immediately obvious to me "why" based on the haplotype ATCG plots...and will require some sanity checks/arithmetic (all these statistics revolve around basic addition and division). Suspect it is tied to missing data and/or not enough variants within a reasonable distance. This could potentially be resolved with the `rehh "min"` functions above. In a different vein, could be tied to the need to go to segregating sites when we have split by loci-regions. 
+
+
+------
+
+
+
+## Populations Considered Together
+
+Here, we consider all population together. The _iHS_ statistic was calculated for all loci (wrt site) and the loci with the higher _iHS_ value is displayed below as an _EHH_ graph. 
+
+```{r}
+plotobj <- drugres_ret_sub$ehhplot
+n <- length(plotobj)
+nCol <- floor(sqrt(n))
+do.call("grid.arrange", c(plotobj, ncol=nCol))
+
+
+
+```
+
+
+## Population Structure
+
+Here, we consider region-loci. The _EHH_ graph plotted is based on the _iHS_ value above (except for _mdr1_ and _pfabcI3_ where I manually set it).
+
+```{r, results='hide'}
+
+
+
+final <- drugregions_sub %>% 
+  group_by(name) %>% 
+  nest()
+final$ehhplot <- map(final$data, "ehhplot")
+final$happlot <- map(final$data, "happlot")
+
+map2(final$ehhplot, final$happlot, function(x, y){
+  n <- length(x)
+  nCol <- floor(sqrt(n))
+  do.call("grid.arrange", c(x, ncol=nCol))
+  
+  m <- length(y)
+  mCol <- floor(sqrt(m))
+  do.call("grid.arrange", c(y, ncol=mCol))
+  
+})
+
+
+
+```

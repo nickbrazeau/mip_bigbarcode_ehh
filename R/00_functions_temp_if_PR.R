@@ -51,10 +51,10 @@ MIPanalyzerbi2vcfR <- function(input = NULL, cutoff = cutoff){
   fix <- as.matrix(input$loci[,c("CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO")]) # must be in this order and only these
   # https://stackoverflow.com/questions/15618527/why-does-as-matrix-add-extra-spaces-when-converting-numeric-to-character
   # not sure why trim is failing here. annoying
-  fix[,2] <- stringr::str_replace(fix[,2], "\\s", "")
+  fix[,2] <- stringr::str_replace_all(fix[,2], "\\s", "")
   # get meta
   # meta <- append(input$vcfmeta, "##MIPanalyzer=This vcf was filtered and modified by the MIPanalyzer R package")
-  meta <- c("##fileformat=VCFv4.2", "##Simulated with vcfR2manip make_bifastamatvcfR")
+  meta <- c("##fileformat=VCFv4.2")
   # write out new vcfRobj
   newvcfR <- new("vcfR", meta = meta, fix = fix, gt = gt)
   return(newvcfR)
