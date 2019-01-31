@@ -10,7 +10,7 @@ source("analyses/00_data_input.R")
 library(tidyverse)
 devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
-
+load("analyses/data/drug_res_nopopstructure.rda")
 
 #.................................
 # need drug and population specific sites and combine
@@ -120,7 +120,7 @@ rehhfile <- tibble(
   region = stringr::str_split_fixed(stringr::str_replace(basename(thap_files), ".thap", ""), "-", n=2)[,2]
 )
 
-rehhfile$haplohh <- purrr::map2(rehhfile$thap_files, rehhfile$pmap_files,  ~data2haplohh(hap_file=.x, map_file=.y,
+rehhfile$haplohh <- purrr::map2(rehhfile$thap_files, rehhfile$pmap_files,  ~rehh::data2haplohh(hap_file=.x, map_file=.y,
                                                                                          haplotype.in.columns=TRUE,
                                                                                          recode.allele = T,
                                                                                          min_perc_geno.hap = 0,
@@ -140,28 +140,17 @@ drugregions_sub <- rehhfile %>%
 #.................................
 # call ihs calcs
 #.................................
-drugregions_sub$scanhh <- purrr::map(drugregions_sub$haplohh, scan_hh,
+drugregions_sub$scanhh <- purrr::map(drugregions_sub$haplohh, rehh::scan_hh,
                                      limhaplo = 2,
                                      limehh = 0.05)
 
-drugregions_sub$marker <-  purrr::map(drugregions_sub$scanhh, function(x){
-  maxmarker <- which(x$iES_Sabeti_et_al_2007 == max(x$iES_Sabeti_et_al_2007, na.rm = T))
-  return(maxmarker)
-})
+# merge in marker that was identified in the initial report
+drugregions_sub <- left_join(x=drugregions_sub, y = drugres_ret_sub[,c("marker", "geneid")])
 
-# !!!! something odd with mdr1 and now dhps -- recoding issue?
-which(sapply(drugregions_sub$marker, function(x) identical(x, integer(0))))  # these are all the mdr1s
-
-drugregions_sub$marker[ which(sapply(drugregions_sub$marker, function(x) identical(x, integer(0)))) %in%
-                          c(2,7,12,17,22,27,32,37,42)] <- 11 # !!! this madness for now. this mdr1
-
-
-drugregions_sub$marker[ which(sapply(drugregions_sub$marker, function(x) identical(x, integer(0)))) %in%
-                          c(4,9,14,19,24,29,34,39,44)] <- 3
 #.................................
 # call ehh based on ihs value
 #.................................
-drugregions_sub$ehh <- map2(drugregions_sub$haplohh, drugregions_sub$marker, ~calc_ehh(
+drugregions_sub$ehh <- map2(drugregions_sub$haplohh, drugregions_sub$marker, ~rehh::calc_ehh(
                             haplohh = .x,
                             mrk = .y,
                             limhaplo = 2,

@@ -166,5 +166,5 @@ n <- length(plotobj)
 nCol <- floor(sqrt(n))
 do.call("grid.arrange", c(plotobj, ncol=nCol))
 
-save(drugres_ret_sub, file = "analyses/data/drug_res_nopopstructure.rda")
+save(drugres_ret_full, drugres_ret_sub, file = "analyses/data/drug_res_nopopstructure.rda")
 

@@ -30,7 +30,7 @@ load("~/Documents/GitHub/mip_bigbarcode_ehh/analyses/data/drug_res_nopopstructur
 1. Convert MIPAnalyzer object to a vcfR object and then VCF
 	+ Bob accepted PR, this is now in `MIPAnalyzer` as MIPanalyzerbi2vcfR. Passed `vcf-validator`
 	+ One thing to consider, this function expects you to assign a "cutoff" on the Non-ref WSAF to assign the GT in the format column. This parameter will be sensitive to our results as any HET calls are coded as missing when making the haplotype files (see below) 
-2. Polarized VCF (i.e. assigned ancestral allele) using Andrew Morgan's `vcfdo` package. 
+2. Polarized VCF (i.e. assigned ancestral allele based on _P. reichenowi_) using Andrew Morgan's `vcfdo` package. 
 3. Used genetic map that Andrew Morgan put together from Pfcross to impute cM position from our VCF base-pair positions
 4. Subset to monoclonal samples identified by OJ Watson (ongoing) 
 5. Regions set by OJ Watson
@@ -78,6 +78,20 @@ Something odd/problematic is going on with _mdr1_ and _pfabcI3_ site and the hap
 
 Here, we consider all population together. The _iHS_ statistic was calculated for all loci (wrt site) and the loci with the higher _iHS_ value is displayed below as an _EHH_ graph. 
 
+### Table of Mutations 50kb Up/Downstream 
+```{r}
+
+drugres_ret_full %>% 
+  dplyr::select(-c("vcfRobj")) %>% 
+  DT::datatable(., extensions='Buttons',
+               options = list(
+              searching = T,
+              pageLength = 22,
+              dom = 'Bfrtip', 
+              buttons = c('csv')))
+```
+
+### Plots
 ```{r}
 plotobj <- drugres_ret_sub$ehhplot
 n <- length(plotobj)
@@ -93,6 +107,20 @@ do.call("grid.arrange", c(plotobj, ncol=nCol))
 
 Here, we consider region-loci. The _EHH_ graph plotted is based on the _iHS_ value above (except for _mdr1_ and _pfabcI3_ where I manually set it).
 
+### Table of Mutations 50kb Up/Downstream 
+```{r}
+
+drugregions_sub %>% 
+  dplyr::select(c("region", "chr", "start", "end", "name", "geneid", "nvar", "nsmpls")) %>% 
+  DT::datatable(., extensions='Buttons',
+               options = list(
+              searching = T,
+              pageLength = 22,
+              dom = 'Bfrtip', 
+              buttons = c('csv')))
+```
+
+### Plots
 ```{r, results='hide'}
 
 
