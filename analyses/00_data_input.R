@@ -3,85 +3,110 @@
 #.................................
 devtools::install_github("nickbrazeau/rplasmodium")
 library(rplasmodium)
+devtools::install_github("OJWatson/MIPanalyzer")
+library(MIPanalyzer)
+library(vcfR)
 library(tidyverse)
 library(stringr)
 
-#.................................
-# imports
-#.................................
-mc <- readRDS("analyses/data/monoclonal_samples.rds")
-mc$name_short <- stringr::str_split_fixed(mc$name, pattern = "-", n=2)[,1] #!!!! need to fix this with OJ
-
-mipbi <- readRDS("analyses/data/biallelic_processed.rds")
-drugres <- rplasmodium::pf_3d7_PutDrugRxSites
-drugres$start <- drugres$start + 1 # take 1-based, vcfs are 1-based
 
 #.................................
-# make map file
+# read in filtered big-barcode panel
 #.................................
-maplm <- function(data){
-    lm(cM ~ pos,
-            data = data)
+mipbigpanel <- readRDS("data/biallelic_distances.rds")
+#.................................
+# read in drug res panel
+#.................................
+mipDRpanel <- readRDS("data/dr_processed.rds")
+biallelic_sites <- !stringr::str_detect(mipDRpanel$loci$ALT, ",")  # this works because we only have SNPs for now
+# long way to subset to a biallelic from multiallelic vcf but checked in raw vcf on command line, this works fine for now
+mipDRpanel$loci <- mipDRpanel$loci[biallelic_sites, ]
+mipDRpanel$coverage <- mipDRpanel$coverage[,biallelic_sites]
+mipDRpanel$counts <- mipDRpanel$counts[2,,biallelic_sites] # this is the wsnraf which is typically stored in the biallelic mip analyzer object
+class(mipDRpanel) <- "mipanalyzer_biallelic"
+
+
+
+# know from conversations w/ Bob that there the mipDRpanel is the limiting sample set
+# will subset the big panel sample list to the DR panel list so that we can concatenate
+if(
+  sum( mipDRpanel$samples$ID %in% mipbigpanel$samples$ID ) !=
+  nrow(mipDRpanel$samples)){
+  stop("Incompatibility between big panel vcf and dr panel vcf")
 }
-mp <- rplasmodium::recomb_map_pf3d7
-mapmodels <- mp %>%
-  group_by(chr) %>%
-  nest() %>%
-  dplyr::mutate(model = purrr::map(data, maplm),
-                chr_fct = rplasmodium::factor_chrom(chr),
-                chr_orig = chr,
-                CHROM = paste0("chr", as.character(chr_fct))) %>%
-  select(-c("chr_fct", "chr"))
+# SUBSET big panel vcf
+mipbigpanel_sub <- MIPanalyzer::filter_samples(mipbigpanel, c( mipbigpanel$samples$ID %in% mipDRpanel$samples$ID ),
+                                               description = "Drop BB Samples to DR filtered Samples")
+
+#.................................
+# error handle the overlapping sites
+#.................................
+
+if(any(
+  paste0(mipbigpanel$loci[,1], mipbigpanel$loci[,2]) %in% paste0(mipDRpanel$loci[,1], mipDRpanel$loci[,2])
+)){
+  stop(paste("Overlapping loci in the big mip panel and DR panel -- there are", sum( paste0(mipbigpanel$loci[,1], mipbigpanel$loci[,2]) %in% paste0(mipDRpanel$loci[,1], mipDRpanel$loci[,2]) ),
+             "overlapping sites between the DR panel and Big Panel VCF"))
+}
+
+mipBB_sub_repeats_loci <- which( paste0(mipbigpanel_sub$loci[,1], mipbigpanel_sub$loci[,2]) %in% paste0(mipDRpanel$loci[,1], mipDRpanel$loci[,2]) )
+mipDR_sub_repeats_loci <- which( paste0(mipDRpanel$loci[,1], mipDRpanel$loci[,2]) %in%  paste0(mipbigpanel_sub$loci[,1], mipbigpanel_sub$loci[,2]) )
+
+# merge the big barcode panel reads into DR reads
+tempcounts <- mipbigpanel_sub$counts[, mipBB_sub_repeats_loci]
+tempcounts[is.na(tempcounts)] <- 0
+mipDRpanel$counts[, mipDR_sub_repeats_loci] <- mipDRpanel$counts[, mipDR_sub_repeats_loci] + tempcounts
+
+tempcov <- mipbigpanel_sub$coverage[, mipBB_sub_repeats_loci]
+tempcov[is.na(tempcov)] <- 0
+mipDRpanel$coverage[, mipDR_sub_repeats_loci] <- mipDRpanel$coverage[, mipDR_sub_repeats_loci] + tempcov
+
+# drop these sites in big barcode now
+mipbigpanel_sub$counts <- mipbigpanel_sub$counts[, -c(mipBB_sub_repeats_loci)]
+mipbigpanel_sub$coverage <- mipbigpanel_sub$coverage[, -c(mipBB_sub_repeats_loci)]
+mipbigpanel_sub$loci <- mipbigpanel_sub$loci[-c(mipBB_sub_repeats_loci), ]
+
 
 
 #.................................
-# alter drug res
+# Make the vcfs
 #.................................
-drugres <- drugres %>%
-  dplyr::filter(chr != "Pf_M76611") %>%  # no recombo in mtdna, no EHH
-  dplyr::mutate(chrom_fct = rplasmodium::factor_chrom(chr),
-                seqname = paste0("chr", as.character(chrom_fct)),
-                start = start - 5*1e4, # already made 1-based
-                end = end + 5*1e4)
-# make sure we are still on the genomic map
-# min(drugres$start)
-# aggregate(drugres$end, list(factor(drugres$chr)), max)
-# rplasmodium::chromsizes_3d7()
 
+mipbivcfR <- MIPanalyzer::MIPanalyzerbi2vcfR(input = mipbigpanel_sub, cutoff = 0.1)
+mipDRvcfR <- MIPanalyzer::MIPanalyzerbi2vcfR(input = mipDRpanel, cutoff = 0.1)
 
+#.................................
+# remove sites that are all ref in the 112 sample for BB and DR
+#.................................
+mipdrgt <- vcfR::extract.gt(mipDRvcfR, element = "GT")
+mipdr_ref_loci <- apply(mipdrgt, 1, function(x){ all(x == "0/0", na.rm = T) })
 
+mipDRvcfR@fix <- mipDRvcfR@fix[!mipdr_ref_loci, ]
+mipDRvcfR@gt <- mipDRvcfR@gt[!mipdr_ref_loci, ]
 
+mipbbgt <- vcfR::extract.gt(mipbivcfR, element = "GT")
+mipbb_ref_loci <- apply(mipbbgt, 1, function(x){ all(x == "0/0", na.rm = T) })
 
+mipbivcfR@fix <- mipbivcfR@fix[!mipbb_ref_loci, ]
+mipbivcfR@gt <- mipbivcfR@gt[!mipbb_ref_loci, ]
 
-# IMPORTANT... only need to run this once per go but make a better system call
-# #.................................
-# # make vcfR
-# #.................................
-# mipbivcfR <- MIPanalyzerbi2vcfR(input = mipbi, cutoff = 0.1)
-# # subset to monoclonal samples
-#
-# mipbivcfR <- mipbivcfR[,colnames(mipbivcfR@gt) %in% c("FORMAT", mc$name_short)]
-# #!!!! LOSING 7 samples from OJ. Ask him if he can use mipmapper sample names
-#
-#
-# #.................................
-# # write out to be compatible with pf3d7
-# #.................................
-# liftover <- tibble(chrom = rplasmodium::chromnames(genome = "pf3d7")[1:14],
-#        chr = paste0("chr", seq(1:14)))
-# CHROM <- left_join(tibble(chr = vcfR::getCHROM(mipbivcfR)), liftover)
-# mipbivcfR@fix[,1] <- unlist(CHROM[,2])
-# write.vcf(mipbivcfR, file = "~/Documents/MountPoints/mountedMeshnick/Projects/mip_bigbarcode_ehh/analyses/data/mipbi_bigbarcode.vcf.gz")
-#
-# system("bash ~/Documents/MountPoints/mountedMeshnick/Projects/mip_bigbarcode_ehh/analyses/data/polarize.sh")
-
-
-
-
-mipbivcfR <- vcfR::read.vcfR("~/Documents/MountPoints/mountedMeshnick/Projects/mip_bigbarcode_ehh/analyses/data/polarized_mipbi_bigbarcode.vcf.gz")
-
-
+#.................................
+# write out to be compatible with pf3d7
+#.................................
 liftover <- tibble(chrom = rplasmodium::chromnames(genome = "pf3d7")[1:14],
-        chr = paste0("chr", seq(1:14)))
-CHROM <- left_join(tibble(chrom = vcfR::getCHROM(mipbivcfR)), liftover)
-mipbivcfR@fix[,1] <- unlist(CHROM[,2])
+       chr = paste0("chr", seq(1:14)))
+CHROMbb <- left_join(tibble(chr = vcfR::getCHROM(mipbivcfR)), liftover)
+mipbivcfR@fix[,1] <- unlist(CHROMbb[,2])
+
+CHROMdr <- left_join(tibble(chr = vcfR::getCHROM(mipDRvcfR)), liftover)
+mipDRvcfR@fix[,1] <- unlist(CHROMdr[,2])
+
+vcfR::write.vcf(mipbivcfR, file = "data/mipbi_bigbarcodepanel.vcf.gz")
+vcfR::write.vcf(mipDRvcfR, file = "data/mipbi_drugrespanel.vcf.gz")
+
+system("bash ~/Documents/MountPoints/mountedMeshnick/Projects/mip_bigbarcode_ehh/analyses/vcf_manip_vcfdo.sh")
+
+
+
+
+

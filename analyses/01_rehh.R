@@ -7,22 +7,26 @@
 #.................................
 # imports
 #.................................
-#source("R/00_functions_temp_if_PR.R")
-source("analyses/00_data_input.R")
+source("analyses/00_metadata.R")
 library(tidyverse)
 devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
 library(rehh)
 library(gridExtra)
+
+mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/polarized_mipbi_bigbarcode.vcf.bgz")
+
 #.................................
 # datawrangle
 #.................................
+# remember for the vcfR2SubsetChromPos function to work the chromosome name in the VCF must be in the `seqname` field. To protect against multiple chrom names floating around
+drugres$seqname <- drugres$chr # updated for our work
 
 drugreslist <- split(drugres, factor(1:nrow(drugres)))
 
 drugres_ret_full <- drugres %>%
   select(-c("strand", "chrom_fct", "seqname"))
-drugres_ret_full$vcfRobj <- purrr::map(drugreslist, vcfRmanip::vcfR2SubsetChromPos, vcfRobject = mipbivcfR)
+drugres_ret_full$vcfRobj <- purrr::map(drugreslist, vcfRmanip::vcfR2SubsetChromPos, vcfRobject = mipbb_dr_panel_vcfR)
 drugres_ret_full$nvar <- unlist(purrr::map(drugres_ret_full$vcfRobj, function(x){ return(nrow(x@gt)) }))
 
 drugres_ret_sub <- drugres_ret_full %>%
@@ -40,7 +44,7 @@ getpmap.polarize <- function(x, chrommapdf = mapmodels){
   predmp <- inner_join(chrommapdf, chrompos) %>%
     mutate(cMpred = map2_dbl(model, pos, ~predict(.x, newdata = data.frame(pos = .y))))
 
-  fixtidy <- vcfR::extract_info_tidy(x)
+  fixtidy <- vcfR::extract_info_tidy(x, info_fields = "AA")
   refalt <- tibble::as_tibble(vcfR::getFIX(x)[,c("REF", "ALT")])
   alleles <- dplyr::bind_cols(refalt, fixtidy)
 
@@ -50,11 +54,11 @@ getpmap.polarize <- function(x, chrommapdf = mapmodels){
                  alleles$ALT, alleles$REF)
 
   )
-  # APM specific masks. Shouldn't be an issue in genic regions
+  # APM specific masks
   ancderiv$anc[fixtidy$AA %in% c("N", "X")] <- NA
   ancderiv$der[fixtidy$AA %in% c("N", "X")] <- NA
 
-  ret <- tibble::tibble(snpname = paste0(predmp$chr_orig, "_", predmp$pos),
+  ret <- tibble::tibble(snpname = paste0(predmp$CHROM, "_", predmp$pos),
                         chrom = predmp$CHROM,
                         pos = predmp$cMpred,
                         anc = ancderiv$anc,
@@ -95,10 +99,9 @@ rehhfile <- tibble(
 
 rehhfile$haplohh <- purrr::map2(rehhfile$thap_files, rehhfile$pmap_files,  ~rehh::data2haplohh(hap_file=.x, map_file=.y,
                                                                                          haplotype.in.columns=TRUE, recode.allele = T,
-                                                                                         min_perc_geno.hap=0,
-                                                                                         min_perc_geno.snp=0,
-                                                                                         min_maf = 0)) # !!!! tweaking required; turning them off for now
-
+                                                                                         min_perc_geno.hap=50,
+                                                                                         min_perc_geno.snp=50,
+                                                                                         min_maf = 0)) # !!!! tweaking required
 
 #.................................
 # combine
@@ -120,8 +123,16 @@ drugres_ret_sub$marker <- purrr::map(drugres_ret_sub$scanhh, function(x){
   return(maxmarker)
 })
 
+
+
+# MARKER ISSUE STOPPED BY MUTLIALLELIC
 drugres_ret_sub$marker[[2]] <- 11 # !!!! temp. this is an interesing site
 drugres_ret_sub$marker[[4]] <- 3 # !!!! temp. this is an interesing site
+
+
+vcfR::getFIX(drugres_ret_sub$vcfRobj[[1]])
+
+
 #.................................
 # call ehh based on ihs value
 #.................................
