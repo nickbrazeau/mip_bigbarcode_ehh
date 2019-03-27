@@ -33,7 +33,7 @@ mapmodels <- mp %>%
                 chr_fct = rplasmodium::factor_chrom(chr),
                 CHROM = chr
                 ) %>%
-  select(-c("chr_fct", "chr"))
+  dplyr::select(-c("chr_fct", "chr"))
 
 
 #.................................
@@ -45,6 +45,9 @@ drugres <- drugres %>%
                 seqname = paste0("chr", as.character(chrom_fct)),
                 start = start - 5*1e4, # already made 1-based
                 end = end + 5*1e4)
+# remember for the vcfR2SubsetChromPos function to work the chromosome name in the VCF must be in the `seqname` field. To protect against multiple chrom names floating around
+drugres$seqname <- drugres$chr # updated for our work
+
 # make sure we are still on the genomic map
 min(drugres$start)
 aggregate(drugres$end, list(factor(drugres$chr)), max)

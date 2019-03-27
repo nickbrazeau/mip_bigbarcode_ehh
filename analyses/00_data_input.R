@@ -45,7 +45,7 @@ mipbigpanel_sub <- MIPanalyzer::filter_samples(mipbigpanel, c( mipbigpanel$sampl
 if(any(
   paste0(mipbigpanel$loci[,1], mipbigpanel$loci[,2]) %in% paste0(mipDRpanel$loci[,1], mipDRpanel$loci[,2])
 )){
-  stop(paste("Overlapping loci in the big mip panel and DR panel -- there are", sum( paste0(mipbigpanel$loci[,1], mipbigpanel$loci[,2]) %in% paste0(mipDRpanel$loci[,1], mipDRpanel$loci[,2]) ),
+  warning(paste("Overlapping loci in the big mip panel and DR panel -- there are", sum( paste0(mipbigpanel$loci[,1], mipbigpanel$loci[,2]) %in% paste0(mipDRpanel$loci[,1], mipDRpanel$loci[,2]) ),
              "overlapping sites between the DR panel and Big Panel VCF"))
 }
 
