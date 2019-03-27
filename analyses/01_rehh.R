@@ -19,8 +19,6 @@ mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/polarized_mipbi_bigbarcode.v
 #.................................
 # datawrangle
 #.................................
-# remember for the vcfR2SubsetChromPos function to work the chromosome name in the VCF must be in the `seqname` field. To protect against multiple chrom names floating around
-drugres$seqname <- drugres$chr # updated for our work
 
 drugreslist <- split(drugres, factor(1:nrow(drugres)))
 
@@ -124,19 +122,49 @@ drugres_ret_sub$marker <- purrr::map(drugres_ret_sub$scanhh, function(x){
 })
 
 
+#.................................
+# Pull in MIP targets
+#.................................
+mrks <- readr::read_csv("data/verity_mip_targets_found.csv")
+chromnmliftover <- data.frame(Chrom = paste0("chr", 1:14),
+                              CHROM = rplasmodium::chromnames()[1:14])
+mrks <- mrks %>%
+  dplyr::left_join(., chromnmliftover) %>%
+  dplyr::select(-c("Chrom")) %>%
+  dplyr::rename(POS = Pos,
+                CHR = CHROM) %>%
+  dplyr::mutate(POS = POS - 1,
+                POS = as.character(POS))
 
-# MARKER ISSUE STOPPED BY MUTLIALLELIC
-drugres_ret_sub$marker[[2]] <- 11 # !!!! temp. this is an interesing site
-drugres_ret_sub$marker[[4]] <- 3 # !!!! temp. this is an interesing site
+
+drugres_ret_sub$targets <- purrr::map(drugres_ret_sub$scanhh, function(x){
+
+  x$POS <- stringr::str_split_fixed(rownames(x), "_v3_", n=2)[,2]
+  x <- dplyr::left_join(x, mrks, by = c("CHR", "POS")) # from global
+  ret <- data.frame(
+    mutations = x$Mutation.Name[!is.na(x$Mutation.Name)],
+    marker = which(!is.na(x$Mutation.Name))
+  )
+  return(ret)
+
+})
 
 
 vcfR::getFIX(drugres_ret_sub$vcfRobj[[1]])
 
+# manually set for now
+markerdf <- data.frame(
+  name = c("kelch", "crt", "mdr1", "dhps", "dhfr", "pfabcI3", "pfpare"),
+  mutation = c("kelch-misc", "crt-N75E", "mdr1-N86Y", "dhps-K540E", "dhfr-misc",  "pfabcI3-misc", "pfpare-?-strong"),
+  marker = c(15, 11, 14, 16, 5, 6, 48)
+)
+
+drugres_ret_sub <- left_join(drugres_ret_sub, markerdf, by = "name")
 
 #.................................
 # call ehh based on ihs value
 #.................................
-drugres_ret_sub$ehh <- map2(drugres_ret_sub$haplohh, drugres_ret_sub$marker, ~calc_ehh(
+drugres_ret_sub$ehh <- purrr::map2(drugres_ret_sub$haplohh, drugres_ret_sub$marker, ~calc_ehh(
   haplohh = .x,
   mrk = .y,
   limhaplo = 2,
@@ -152,24 +180,27 @@ drugres_ret_sub$ehh <- map(drugres_ret_sub$ehh, function(x){ return(as.data.fram
 drugres_ret_sub$ehhdf <- map2(drugres_ret_sub$pos, drugres_ret_sub$ehh, ~data.frame(pos = .x,
                                                                                     ancestral = .y[,1],
                                                                                     derived = .y[,2]))
+
 drugres_ret_sub$ehhdf <- map(drugres_ret_sub$ehhdf, function(x){
   ret <- gather(x, key = "allele", value = "ehh", 2:3)
   return(ret)
 })
 
+
 #.................................
 # make plots for ehh continous
 #.................................
-plotehh <- function(ehhdf, region, name){
+plotehh <- function(ehhdf, mutation){
   plotObj <- ggplot() +
     geom_line(data=ehhdf, aes(x=pos, y=ehh, colour = factor(allele), group = factor(allele))) +
     scale_color_manual("Allele Status", values = c("#4575b4", "#d73027")) +
-    ggtitle(paste0("Gene ", name)) +
+    ggtitle(mutation) +
     theme_bw() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5))
 }
 
-drugres_ret_sub$ehhplot <-  pmap(drugres_ret_sub[,c("name", "ehhdf")], plotehh)
+
+drugres_ret_sub$ehhplot <-  pmap(drugres_ret_sub[,c("ehhdf", "mutation")], plotehh)
 
 
 plotobj <- drugres_ret_sub$ehhplot
@@ -177,5 +208,5 @@ n <- length(plotobj)
 nCol <- floor(sqrt(n))
 do.call("grid.arrange", c(plotobj, ncol=nCol))
 
-save(drugres_ret_full, drugres_ret_sub, file = "analyses/data/drug_res_nopopstructure.rda")
+save(drugres_ret_full, drugres_ret_sub, file = "data/derived/drug_res_nopopstructure.rda")
 

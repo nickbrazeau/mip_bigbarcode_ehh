@@ -18,8 +18,11 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, fig.width = 11, fig.height = 8)
 library(tidyverse)
 library(gridExtra)
-load("~/Documents/GitHub/mip_bigbarcode_ehh/analyses/data/drugregions_sub.rda")
-load("~/Documents/GitHub/mip_bigbarcode_ehh/analyses/data/drug_res_nopopstructure.rda")
+load("~/Documents/GitHub/mip_bigbarcode_ehh/data/derived/drugregions_sub.rda")
+load("~/Documents/GitHub/mip_bigbarcode_ehh/data/derived/drug_res_nopopstructure.rda")
+mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "~/Documents/GitHub/mip_bigbarcode_ehh/data/polarized_mipbi_bigbarcode.vcf.bgz")
+mc <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/monoclonals.rds")
+
 ```
 
 
@@ -57,7 +60,7 @@ load("~/Documents/GitHub/mip_bigbarcode_ehh/analyses/data/drug_res_nopopstructur
 
 1. `rehh` package has some default fiters (see [here](https://cran.r-project.org/web/packages/rehh/vignettes/rehh.pdf) wrt to `min_perc_geno.hap`, `min_perc_geno.snp`, and `min_maf` and less wrt `limehh` and `limhaplo`).
 	+ The "min" cutoffs for the `data2haplohh` function will require some "tweaking".  
-	+ The defaults I used for the _haplotype statistics_ of limit haplotype of 2 (can't go lower) and limit ehh of 0.05 are common. 
+	+ The defaults I used for the _haplotype statistics_ of limit haplotype and SNPs to 50% (arbitrarily) and limited ehh to 0.05 (common). 
 	+ **NOTE, as a result of these `rehh` fitlers, additional samples and SNPs get dropped**. 
 
 
@@ -65,18 +68,37 @@ load("~/Documents/GitHub/mip_bigbarcode_ehh/analyses/data/drug_res_nopopstructur
 
 vcfR manipulations are being hosted in the R-package `IDEELResearch/vcfRmanip` and includes tools to subset and alter the vcfR class. However, when writing out to disk with `vcfR::write.vcf` the compression strategy used does not agree with `bcftools` (wants `bgzip`). A quick fix is `gunzip vcf ; bgzip vcf`. 
 
+#### The Good
+When we have a site that we previously identified and sampled somewhat densely around it, the EHH plots look reasonable. 
+**Differences in _crt_ and _dhps_ haplotypes by regions that correspond with Bob's phylo-maps (and Molly/Bob's previously published love-children maps).**
+
 #### The Ugly
+Kelch has very little variation -- probably just drift. DHFR wasn't sampled "densely" that passed. Pfabc is potentially noise. 
 
-Something odd/problematic is going on with _mdr1_ and _pfabcI3_ site and the haplotype statistic calculations when we consider all populations together. Similarly, something odd is on going on with the _mdr1_, _pfabcI3_, and _dhps_ site (the later for only some region-loci) and haplotype statistics when we account for population substructure. Wasn't immediately obvious to me "why" based on the haplotype ATCG plots...and will require some sanity checks/arithmetic (all these statistics revolve around basic addition and division). Suspect it is tied to missing data and/or not enough variants within a reasonable distance. This could potentially be resolved with the `rehh "min"` functions above. In a different vein, could be tied to the need to go to segregating sites when we have split by loci-regions. 
+#### Table
+Metadata/COI provided by OJ. Samples filtered by Bob. 
+**With current filters down to 112 samples, we are left with three countries: DRC, Ghana, Zambia**.
 
+```{r}
+
+
+vcfsmpls <- unlist(colnames(mipbb_dr_panel_vcfR@gt)[-1])
+mcsub <- mc[mc$ID %in% vcfsmpls, ] 
+mcsub %>% 
+  DT::datatable(., extensions='Buttons',
+               options = list(
+              searching = T,
+              pageLength = 15,
+              dom = 'Bfrtip', 
+              buttons = c('csv')))
+
+```
 
 ------
 
-
-
 ## Populations Considered Together
 
-Here, we consider all population together. The _iHS_ statistic was calculated for all loci (wrt site) and the loci with the higher _iHS_ value is displayed below as an _EHH_ graph. 
+Here, we consider all population together. The _iHS_ statistic was calculated for all loci (wrt site) and the loci with the higher _iHS_ value is displayed below as an _EHH_ graph based on _a priori_ drug resistant mutations. 
 
 ### Table of Mutations 50kb Up/Downstream 
 ```{r}
@@ -105,7 +127,24 @@ do.call("grid.arrange", c(plotobj, ncol=nCol))
 
 ## Population Structure
 
-Here, we consider region-loci. The _EHH_ graph plotted is based on the _iHS_ value above (except for _mdr1_ and _pfabcI3_ where I manually set it).
+Here, same thing but considering pop-structure. 
+
+### Population Map
+**Based on OJ's K-means clustering with DRC of 2 groups because this was closest to SRM's question of an East/West Divide. Can split out more but waiting for filtering updates**. 
+
+```{r, fig.width=6, fig.height=6, fig.align='center'}
+basemap <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/map_bases/basemap.rds")
+ggplot() + 
+  basemap +
+  geom_point(data = mcsub, aes(x=long, y=lat, color = factor(KMC2))) +
+  ggtitle(paste("Locations of the", nrow(mcsub), "Samples Remaining")) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        axis.title = element_blank(),
+        axis.ticks = element_blank())
+
+```
+
 
 ### Table of Mutations 50kb Up/Downstream 
 ```{r}
