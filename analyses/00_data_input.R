@@ -3,7 +3,7 @@
 #.................................
 devtools::install_github("nickbrazeau/rplasmodium")
 library(rplasmodium)
-devtools::install_github("OJWatson/MIPanalyzer")
+devtools::install_github("nickbrazeau/MIPanalyzer")
 library(MIPanalyzer)
 library(vcfR)
 library(tidyverse)
@@ -72,8 +72,8 @@ mipbigpanel_sub$loci <- mipbigpanel_sub$loci[-c(mipBB_sub_repeats_loci), ]
 # Make the vcfs
 #.................................
 
-mipbivcfR <- MIPanalyzer::MIPanalyzerbi2vcfR(input = mipbigpanel_sub, cutoff = 0.1)
-mipDRvcfR <- MIPanalyzer::MIPanalyzerbi2vcfR(input = mipDRpanel, cutoff = 0.1)
+mipbivcfR <- MIPanalyzerbi2vcfR(input = mipbigpanel_sub, cutoff = 0.1)
+mipDRvcfR <- MIPanalyzerbi2vcfR(input = mipDRpanel, cutoff = 0.1)
 
 #.................................
 # remove sites that are all ref in the 112 sample for BB and DR
@@ -104,7 +104,7 @@ mipDRvcfR@fix[,1] <- unlist(CHROMdr[,2])
 vcfR::write.vcf(mipbivcfR, file = "data/mipbi_bigbarcodepanel.vcf.gz")
 vcfR::write.vcf(mipDRvcfR, file = "data/mipbi_drugrespanel.vcf.gz")
 
-system("bash ~/Documents/MountPoints/mountedMeshnick/Projects/mip_bigbarcode_ehh/analyses/vcf_manip_vcfdo.sh")
+system("bash ~/Documents/Github/mip_bigbarcode_ehh/analyses/vcf_manip_vcfdo.sh")
 
 
 

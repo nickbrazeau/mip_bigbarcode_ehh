@@ -18,9 +18,9 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, fig.width = 11, fig.height = 8)
 library(tidyverse)
 library(gridExtra)
-load("~/Documents/GitHub/mip_bigbarcode_ehh/data/derived/drugregions_sub.rda")
-load("~/Documents/GitHub/mip_bigbarcode_ehh/data/derived/drug_res_nopopstructure.rda")
-mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "~/Documents/GitHub/mip_bigbarcode_ehh/data/polarized_mipbi_bigbarcode.vcf.bgz")
+load("~/Documents/GitHub/mip_bigbarcode_ehh/results/01-drugres_obj_rehh.rda")
+load("~/Documents/GitHub/mip_bigbarcode_ehh/results/02-drugregions_populations_subcompar.rda")
+mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "~/Documents/GitHub/mip_bigbarcode_ehh/data/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
 mc <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/monoclonals.rds")
 
 ```
@@ -38,7 +38,7 @@ mc <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/monoclonals.rds")
 4. Subset to monoclonal samples identified by OJ Watson (ongoing) 
 5. Regions set by OJ Watson
 	+ After discussion, we elected to keep this simple and use k-means clustering with a number of clusters that we wanted to see (i.e. 4 clusters in the DRC to get a N/E/S/W groups). 
-6. Pulled in Drug Resistance regions identifed by Oz and converted from 0-based to 1-based. Then set window as 50kb upstream and downstream of the start/end of the gene, respectfully. 
+6. Pulled in Drug Resistance regions identifed by Oz and converted from 0-based to 1-based. Then set window as 100kb upstream and downstream of the start/end of the gene, respectfully. 
 	+ These regions are now also updated in the `rplasmodium` package 
 
 ### Data Subset and Filtering
@@ -49,6 +49,8 @@ mc <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/monoclonals.rds")
 2. Drop any loci that does not have at **least 10 variants** in the 50kb (up/downstream) gene flanking regions
 	+ This may require some tweaking testing as this is an arbitary cutoff no my end 
 	+ A reasonable cutoff is needed and perhaps conditional on physical space (10 var 1 cM aren't informative but 10 var w/in 0.01 cM are) 
+3. Drop loci that did not have a clear marker because of a lack of diversity as detected by `scan_hh` through the `discard_integration_at_border` flag (e.g. kelch)
+
 
 #### Account for Population Substructure
 
@@ -115,7 +117,7 @@ drugres_ret_full %>%
 
 ### Plots
 ```{r}
-plotobj <- drugres_ret_sub$ehhplot
+plotobj <- ehhplotdf$ehhplot
 n <- length(plotobj)
 nCol <- floor(sqrt(n))
 do.call("grid.arrange", c(plotobj, ncol=nCol))
@@ -136,7 +138,7 @@ Here, same thing but considering pop-structure.
 basemap <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/map_bases/basemap.rds")
 ggplot() + 
   basemap +
-  geom_point(data = mcsub, aes(x=long, y=lat, color = factor(KMC2))) +
+  geom_point(data = mcsub, aes(x=long, y=lat, color = factor(Country))) +
   ggtitle(paste("Locations of the", nrow(mcsub), "Samples Remaining")) +
   theme(legend.position = "bottom",
         plot.title = element_text(face = "bold", hjust = 0.5),
@@ -164,7 +166,7 @@ drugregions_sub %>%
 
 
 
-final <- drugregions_sub %>% 
+final <- crossehhplotdf %>% 
   group_by(name) %>% 
   nest()
 final$ehhplot <- map(final$data, "ehhplot")

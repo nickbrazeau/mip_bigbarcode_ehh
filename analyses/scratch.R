@@ -1,4 +1,91 @@
 
+
+rt_ehhplotdf$drc_ehhdf <- map(crt$ehh_drc_mark, "ehh")
+crt_ehhplotdf$drc_ehhdf <- map(crt_ehhplotdf$drc_ehhdf, function(x){ return(as.data.frame(t(x))) } )
+crt_ehhplotdf$drc_ehhdf <- map2(crt_ehhplotdf$pos, crt_ehhplotdf$drc_ehhdf, ~data.frame(pos = .x,
+                                                                                        ancestral = .y[,1],
+                                                                                        derived = .y[,2]))
+crt_ehhplotdf$drc_ehhdf <- map(crt_ehhplotdf$drc_ehhdf, function(x){
+  ret <- gather(x, key = "allele", value = "ehh", 2:3)
+  return(ret)
+})
+
+# GHANA MARK
+crt_ehhplotdf$ghana_ehhdf <- map(crt$ehh_ghana_mark, "ehh")
+crt_ehhplotdf$ghana_ehhdf <- map(crt_ehhplotdf$ghana_ehhdf, function(x){ return(as.data.frame(t(x))) } )
+crt_ehhplotdf$ghana_ehhdf <- map2(crt_ehhplotdf$pos, crt_ehhplotdf$ghana_ehhdf, ~data.frame(pos = .x,
+                                                                                            ancestral = .y[,1],
+                                                                                            derived = .y[,2]))
+crt_ehhplotdf$ghana_ehhdf <- map(crt_ehhplotdf$ghana_ehhdf, function(x){
+  ret <- gather(x, key = "allele", value = "ehh", 2:3)
+  return(ret)
+})
+
+crt_ehhplotdf$drc_marker_plot <- mapply(plotehh,
+                                        ehhdf =  crt_ehhplotdf$drc_ehhdf,
+                                        region = crt_ehhplotdf$region,
+                                        marker = crt_ehhplotdf$drcmarker,
+                                        SIMPLIFY = F)
+
+crt_ehhplotdf$ghana_marker_plot <- mapply(plotehh,
+                                          ehhdf =  crt_ehhplotdf$ghana_ehhdf,
+                                          region = crt_ehhplotdf$region,
+                                          marker = crt_ehhplotdf$ghanamarker,
+                                          SIMPLIFY = F)
+
+
+
+
+
+
+#-------------------------------------------------------------------------------------------------------
+# OLD CODE for SNPs Bob found
+#-------------------------------------------------------------------------------------------------------
+
+
+
+#.................................
+# Pull in MIP targets
+#.................................
+mrks <- readr::read_csv("data/verity_mip_targets_found.csv")
+chromnmliftover <- data.frame(Chrom = paste0("chr", 1:14),
+                              CHROM = rplasmodium::chromnames()[1:14])
+mrks <- mrks %>%
+  dplyr::left_join(., chromnmliftover) %>%
+  dplyr::select(-c("Chrom")) %>%
+  dplyr::rename(POS = Pos,
+                CHR = CHROM) %>%
+  dplyr::mutate(POS = POS - 1,
+                POS = as.character(POS))
+
+
+drugres_ret_sub$targets <- purrr::map(drugres_ret_sub$scanhh, function(x){
+
+  x$POS <- stringr::str_split_fixed(rownames(x), "_v3_", n=2)[,2]
+  x <- dplyr::left_join(x, mrks, by = c("CHR", "POS")) # from global
+  ret <- data.frame(
+    mutations = x$Mutation.Name[!is.na(x$Mutation.Name)],
+    marker = which(!is.na(x$Mutation.Name))
+  )
+  return(ret)
+
+})
+
+
+vcfR::getFIX(drugres_ret_sub$vcfRobj[[1]])
+
+# manually set for now
+markerdf <- data.frame(
+  name = c("kelch", "crt", "mdr1", "dhps", "dhfr", "pfabcI3", "pfpare"),
+  mutation = c("kelch-misc", "crt-N75E", "mdr1-N86Y", "dhps-K540E", "dhfr-misc",  "pfabcI3-misc", "pfpare-?-strong"),
+  marker = c(15, 11, 14, 16, 5, 6, 48)
+)
+
+drugres_ret_sub <- left_join(drugres_ret_sub, markerdf, by = "name")
+
+
+
+
 #-------------------------------------------------------------------------------------------------------
 # Purpose of this script is to perform EHH and iHS based on the ancestral and derived allele
 # note this is a different question than cross-population comparisons

@@ -6,13 +6,14 @@
 #.................................
 # imports
 #.................................
+source("R/01-EHH_tools.R")
 source("analyses/00_metadata.R")
 library(tidyverse)
 devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
-load("data/derived/drug_res_nopopstructure.rda")
+load("results/01-drugres_obj_rehh.rda")
 
-mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/polarized_mipbi_bigbarcode.vcf.bgz")
+mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
 
 
 #.................................
@@ -28,7 +29,7 @@ regions$smpls <- purrr::map(regions$data, "id")
 regionlong <- do.call("rbind", lapply(1:nrow(drugres), function(x){
   return(regions)
 })) %>%
-  dplyr::arrange(region)
+  dplyr::arrange(region) # make a copy of the region data for each drug res site (not memory efficient but fits within long tidy framework)
 
 drugregions <- as_tibble(cbind.data.frame(regionlong, drugres))
 
@@ -54,46 +55,13 @@ drugregions$vcfRobj <- purrr::pmap(drugregions[,c("smpls", "seqname", "start", "
 drugregions$nvar <- unlist(purrr::map(drugregions$vcfRobj, function(x){ return(nrow(x@gt)) }))
 drugregions$nsmpls <- unlist(purrr::map(drugregions$vcfRobj, function(x){ return(ncol(x@gt)-1) }))
 drugregions_sub <- drugregions %>%
-  filter(nvar > 10) %>%
+  filter(nvar > 20) %>%
   filter(nsmpls > 5)
 
 
 #.................................
 # make map and haplotype files
 #.................................
-
-getpmap.polarize <- function(x, chrommapdf = mapmodels){
-  chrompos <- vcfR::getFIX(x)[, c("CHROM", "POS")] %>%
-    tibble::as_tibble(.) %>%
-    dplyr::mutate(pos = as.numeric(POS))
-
-  predmp <- inner_join(chrommapdf, chrompos) %>%
-    mutate(cMpred = map2_dbl(model, pos, ~predict(.x, newdata = data.frame(pos = .y))))
-
-  fixtidy <- vcfR::extract_info_tidy(x)
-  refalt <- tibble::as_tibble(vcfR::getFIX(x)[,c("REF", "ALT")])
-  alleles <- dplyr::bind_cols(refalt, fixtidy)
-
-  ancderiv <- tibble::tibble(
-    anc = alleles$AA,
-    der = ifelse(alleles$REF == alleles$AA,
-                 alleles$ALT, alleles$REF)
-
-  )
-  # APM specific masks. Shouldn't be an issue in genic regions
-  ancderiv$anc[fixtidy$AA %in% c("N", "X")] <- NA
-  ancderiv$der[fixtidy$AA %in% c("N", "X")] <- NA
-
-  ret <- tibble::tibble(snpname = paste0(predmp$chr_orig, "_", predmp$pos),
-                        chrom = predmp$CHROM,
-                        pos = predmp$cMpred,
-                        anc = ancderiv$anc,
-                        der = ancderiv$der
-  )
-
-  return(ret)
-}
-
 drugregions_sub$pmap <- purrr::map(drugregions_sub$vcfRobj, getpmap.polarize)
 drugregions_sub$thap <- purrr::map(drugregions_sub$vcfRobj, vcfRmanip::vcfR2thap)
 
@@ -107,7 +75,7 @@ for(i in 1:nrow(drugregions_sub)){
   file = paste0(outdir, drugregions_sub$name[i], "-", drugregions_sub$region[i])
 
   write.table(x = drugregions_sub$thap[[i]], file = paste0(file, ".thap"),
-              sep = " ", quote = F, row.names =T, col.names = F)
+              sep = " ", quote = F, row.names =F, col.names = F)
 
   write.table(x = drugregions_sub$pmap[[i]], file = paste0(file, ".inp"),
               sep = " ", quote = F, row.names =F, col.names = F)
@@ -128,9 +96,9 @@ rehhfile <- tibble(
 rehhfile$haplohh <- purrr::map2(rehhfile$thap_files, rehhfile$pmap_files,  ~rehh::data2haplohh(hap_file=.x, map_file=.y,
                                                                                          haplotype.in.columns=TRUE,
                                                                                          recode.allele = T,
-                                                                                         min_perc_geno.hap = 50,
-                                                                                         min_perc_geno.snp = 50,
-                                                                                         min_maf = 0)) # turn off their cutoffs
+                                                                                         min_perc_geno.hap = 0,
+                                                                                         min_perc_geno.snp = 1, # if entire SNP is missing information, it is due to the fact that we weren't able to polarize it (otherwise would have been dropped upstream); need to drop those as that information is useless
+                                                                                         min_maf = 0)) # !! TWEAKING NEEDED
 
 
 #.................................
@@ -151,13 +119,27 @@ drugregions_sub$scanhh <- purrr::map(drugregions_sub$haplohh, rehh::scan_hh,
 
 
 
+# Find the marker with the largest integrated EHHS statistic by Sabeti (unnormalized)
+# drugregions_sub$marker <- purrr::map(drugregions_sub$scanhh, function(x){
+#   maxmarker <- which(x$iES_Sabeti_et_al_2007 == max(x$iES_Sabeti_et_al_2007, na.rm = T))
+#   maxmarker <- ifelse(purrr::is_empty(maxmarker), NA, maxmarker)
+#   return(maxmarker)
+# })
+#
+#
+# # Throw away loci that don't have a clear marker
+# drugregions_sub <- drugregions_sub %>%
+#   dplyr::filter(!is.na(marker))
+
+
 # manually set for now
-markerdf <- tibble::tibble(
-  name = c("kelch", "crt", "mdr1", "dhps", "dhfr", "pfabcI3", "pfpare"),
-  mutation = c("kelch-misc", "crt-N75E", "mdr1-N86Y", "dhps-K540E", "dhfr-misc",  "pfabcI3-misc", "pfpare-?-strong"),
-  marker = c(15, 11, 14, 16, 5, 6, 48)
-)
-drugregions_sub <- left_join(drugregions_sub, markerdf, by = "name")
+# markerdf <- tibble::tibble(
+#   name = c("kelch", "crt", "mdr1", "dhps", "dhfr", "pfabcI3", "pfpare", "pfaat1"),
+#   mutation = c("kelch-misc", "crt-N75E", "mdr1-N86Y", "dhps-K540E", "dhfr-misc",  "pfabcI3-misc", "pfpare-?-strong", "pfaat1-misc"),
+#   marker = c(15, 11, 14, 16, 5, 6, 48, 12)
+# )
+# drugregions_sub <- left_join(drugregions_sub, markerdf, by = "name")
+# changed when we went out to 100kb
 
 
 #.................................
@@ -172,15 +154,24 @@ drugregions_sub$ehh <- map2(drugregions_sub$haplohh, drugregions_sub$marker, ~re
 )
 
 
+#.................................
+# make plots for ehh continous by region
+#.................................
+crossehhplotdf <- tibble(geneid = drugregions_sub$geneid,
+                    marker = unlist( drugregions_sub$marker ),
+                    region = drugregions_sub$region,
+                    name = drugregions_sub$name )
 
-drugregions_sub$pos <- map(drugregions_sub$haplohh, "position")
-drugregions_sub$ehh <- map(drugregions_sub$ehh, "ehh")
-drugregions_sub$ehh <- map(drugregions_sub$ehh, function(x){ return(as.data.frame(t(x))) } )
 
-drugregions_sub$ehhdf <- map2(drugregions_sub$pos, drugregions_sub$ehh, ~data.frame(pos = .x,
+
+crossehhplotdf$pos <- map(drugregions_sub$haplohh, "position")
+crossehhplotdf$ehh <- map(drugregions_sub$ehh, "ehh")
+crossehhplotdf$ehh <- map(crossehhplotdf$ehh, function(x){ return(as.data.frame(t(x))) } )
+
+crossehhplotdf$ehhdf <- map2(crossehhplotdf$pos, crossehhplotdf$ehh, ~data.frame(pos = .x,
                                                                                     ancestral = .y[,1],
                                                                                     derived = .y[,2]))
-drugregions_sub$ehhdf <- map(drugregions_sub$ehhdf, function(x){
+crossehhplotdf$ehhdf <- map(crossehhplotdf$ehhdf, function(x){
   ret <- gather(x, key = "allele", value = "ehh", 2:3)
   return(ret)
 })
@@ -188,27 +179,33 @@ drugregions_sub$ehhdf <- map(drugregions_sub$ehhdf, function(x){
 #.................................
 # make plots for ehh continous
 #.................................
-plotehh <- function(ehhdf, region, mutation){
+plotehh <- function(ehhdf, region, marker){
   plotObj <- ggplot() +
     geom_line(data=ehhdf, aes(x=pos, y=ehh, colour = factor(allele), group = factor(allele))) +
     scale_color_manual("Allele Status", values = c("#4575b4", "#d73027")) +
-    ggtitle(paste0(mutation, " for region ", region)) +
+    ggtitle(paste0("This is marker: ", marker, " on gene ", geneid, " for region ", region)) +
     theme_bw() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 10))
 }
 
-drugregions_sub$ehhplot <-  pmap(drugregions_sub[,c("region", "mutation", "ehhdf")], plotehh)
+crossehhplotdf$ehhplot <-  pmap(crossehhplotdf[,c("region", "marker", "geneid", "ehhdf")], plotehh)
 
 #.................................
 # make haplotype plots
 #.................................
-drugregions_sub$hapdf <- map(drugregions_sub$thap, function(x){
+crossehhplotdf$hapdf <- map(dhps$thap, function(x){
   x <- t(x)
   x <- as.data.frame(cbind(paste0("smpl", seq(1:nrow(x))), x))
   colnames(x) <- c("smpl", paste0("loci", seq(1:(ncol(x)-1))))
   ret <- gather(x, key = "loci", value = "allele", 2:ncol(x))
+  ret <- ret %>%
+    dplyr::mutate(loci = factor(loci,
+                                levels =  paste0("loci", seq(1:(ncol(x)-1))),
+                                ordered = T))
+
   return(ret)
 })
+
 
 
 plothap <- function(hapdf, region, name){
@@ -218,57 +215,14 @@ plothap <- function(hapdf, region, name){
     ggtitle(paste0("Gene ", name, " for region ", region)) +
     theme_bw() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 10),
-          axis.text = element_blank())
+          axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5),
+          axis.text.y = element_blank()
+    )
 }
-drugregions_sub$happlot <-  pmap(drugregions_sub[,c("region", "name", "hapdf")], plothap)
-
-
-
-# TODO make bifurcation plots (see rehh)
-# TODO in above plots -- highlight with grey bar the focal snp
-
-#example haplohh object (280 haplotypes, 1424 SNPs)
-#see ?haplohh_cgu_bta12 for details
-data(haplohh_cgu_bta12)
-#plotting bifurcation diagram for both ancestral and derived allele
-#from the focal SNP at position 456
-#which display a strong signal of selection
-layout(matrix(1:2,2,1))
-#ancestral allele
-bifurcation.diagram(haplohh_cgu_bta12,mrk_foc=456,all_foc=1,
-                    nmrk_l=20,nmrk_r=20)
-#derived allele
-bifurcation.diagram(haplohh_cgu_bta12,mrk_foc=456,all_foc=2,
-                    nmrk_l=20,nmrk_r=20)
-##
-dev.off()
-
-
-
-#.................................
-# call plots
-#.................................
-library(gridExtra)
-
-final <- drugregions_sub %>%
-  group_by(name) %>%
-  nest()
-final$ehhplot <- map(final$data, "ehhplot")
-final$happlot <- map(final$data, "happlot")
-
-map2(final$ehhplot, final$happlot, function(x, y){
-  n <- length(x)
-  nCol <- floor(sqrt(n))
-  do.call("grid.arrange", c(x, ncol=nCol))
-
-  m <- length(y)
-  mCol <- floor(sqrt(m))
-  do.call("grid.arrange", c(y, ncol=mCol))
-
-})
+crossehhplotdf$happlot <-  pmap(crossehhplotdf[,c("region", "name", "hapdf")], plothap)
 
 
 #.................................
 # write out
 #.................................
-save(drugregions_sub, file = "data/derived/drugregions_sub.rda")
+save(drugregions_sub, crossehhplotdf, file = "results/02-drugregions_populations_subcompar.rda")
