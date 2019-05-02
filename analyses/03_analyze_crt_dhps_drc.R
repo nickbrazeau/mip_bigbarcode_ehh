@@ -256,32 +256,3 @@ crossehhplotdf$spdrplot <- pmap(bifurmap, spiderplot)
 save(crossehhplotdf, drugregions,
         file = "results/03-analyze_crt_dhps_drc.rda")
 
-
-
-crossehhplotdf$spdrplot <- list()
-
-crossehhplotdf$spdrplot[[3]] <- spiderplot(hh = drugregions$haplohh[[3]],
-                                           pmapobj = drugregions$pmap[[3]],
-                                           focal = drugregions$marker[[3]],
-                                           nucleotides = T,
-                                           nucleotidetrim = 5,
-                                           left = 1,
-                                           right = 1,
-                                           max.haps = 2,
-                                           palette = "RdBu",
-                                           reverse = FALSE,
-                                           relabel = NULL)
-
-crossehhplotdf$spdrplot[[4]] <- spiderplot(hh = drugregions$haplohh[[4]],
-                                           pmapobj = drugregions$pmap[[4]],
-                                           focal = drugregions$marker[[4]],
-                                           nucleotides = T,
-                                           nucleotidetrim = 5,
-                                           left = 5,
-                                           right = 5,
-                                           max.haps = 2,
-                                           palette = "RdBu",
-                                           reverse = FALSE,
-                                           relabel = NULL)
-
-
