@@ -5,10 +5,39 @@
 getpmap.polarize <- function(x, chrommapdf = mapmodels){
   chrompos <- vcfR::getFIX(x)[, c("CHROM", "POS")] %>%
     tibble::as_tibble(.) %>%
-    dplyr::mutate(pos = as.numeric(POS))
+    dplyr::mutate(pos = as.numeric(POS),
+                  chromosome = rplasmodium::factor_chrom(CHROM),
+                  start = pos,
+                  end = pos)
 
-  predmp <- inner_join(chrommapdf, chrompos) %>%
-    mutate(cMpred = map2_dbl(model, pos, ~predict(.x, newdata = data.frame(pos = .y))))
+  chrommapdf <- chrommapdf %>%
+    dplyr::rename(chromosome = chr)
+
+
+
+  predmp <- fuzzyjoin::genome_inner_join(x = chrompos,
+                                         y = chrommapdf,
+                                         by = c("chromosome", "start", "end"))
+
+  # sanity check
+  if(nrow(predmp) != nrow(chrompos)){
+    stop("Issue with the Fuzzy Genomic Join")
+  }
+
+  # local interpolation
+  predmp <- predmp %>%
+    mutate(cMpred = cM_slope*(pos-start.y) + cM_intercept)
+
+  # sanity check
+  ismonotonic <- predmp %>%
+    group_by(CHROM) %>%
+    dplyr::summarise( ismonotonic = MonoInc::monotonic(cMpred, direction = "inc")) %>%
+    dplyr::select(ismonotonic) %>%
+    base::unlist(.)
+  if(any(! ismonotonic )){
+    stop("Your cM predictions are not monotonically increasing along the genome")
+  }
+
 
   fixtidy <- vcfR::extract_info_tidy(x, info_fields = "AA")
   refalt <- tibble::as_tibble(vcfR::getFIX(x)[,c("REF", "ALT")])
