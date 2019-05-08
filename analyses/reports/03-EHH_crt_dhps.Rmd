@@ -83,6 +83,56 @@ basemap <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/map_bases/basemap
 
 # Selection Viz
 ## Loci {.tabset .tabset-fade .tabset-pill}
+
+### crt M74I
+It is interesting that only DRC has ancestral and derived alleles for _crt_. Note, Ghana has one. 
+```{r, results="hide"}
+
+#.................................
+# crt loci 76T 
+#.................................
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "M74I") %>% 
+  .$ehhplot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "M74I") %>% 
+  .$happlot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+
+bifurmap <- crtdhps_sub %>%
+   dplyr::filter(mut_name == "M74I") %>% 
+  dplyr::filter(! region %in% c("Uganda", "Zambia", "Ghana")) %>% # lack variation, can't make a bifurcation plot
+  dplyr::select(c("haplohh", "pmap", "cM_Pos")) %>%
+  dplyr::rename(hh = haplohh,
+                pmapobj = pmap,
+                focal = cM_Pos) %>%
+  dplyr::mutate(nucleotides = T,
+                left = 10, # marker here is 11
+                right = 10, # max here would be 66-11
+                max.haps = 2,
+                palette = "RdBu",
+                reverse = FALSE,
+                relabel = NULL)
+
+spdrplots <- pmap(bifurmap, spiderplot)
+
+spdrplots <- pmap(bifurmap, spiderplot)
+spdrplots[[1]] <- spdrplots[[1]] + ggtitle("DRC1.2 for M74I")
+spdrplots[[2]] <- spdrplots[[2]] + ggtitle("DRC2.2 for M74I")
+do.call("grid.arrange", c(spdrplots, nrow=3))
+
+
+
+```
+
+
 ### crt K76T
 It is interesting that only DRC has ancestral and derived alleles for _crt_. Note, Ghana has one. 
 ```{r, results="hide"}
@@ -113,8 +163,8 @@ bifurmap <- crtdhps_sub %>%
                 pmapobj = pmap,
                 focal = cM_Pos) %>%
   dplyr::mutate(nucleotides = T,
-                left = 11, # marker here is 11
-                right = 11, # max here would be 66-11
+                left = 12, # marker here is 13
+                right = 12, # max here would be 66-13
                 max.haps = 2,
                 palette = "RdBu",
                 reverse = FALSE,
@@ -130,6 +180,79 @@ do.call("grid.arrange", c(spdrplots, nrow=3))
 
 
 ```
+
+
+### dhps I356T
+```{r, results="hide"}
+
+#.................................
+# dhps loci 540 
+#.................................
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "I356T") %>% 
+  .$ehhplot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "I356T") %>% 
+  .$happlot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+
+
+```
+
+
+### dhps G437A
+```{r, results="hide"}
+
+#.................................
+# dhps loci 540 
+#.................................
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "G437A") %>% 
+  .$ehhplot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "G437A") %>% 
+  .$happlot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+
+bifurmap <- crtdhps_sub %>%
+   dplyr::filter(mut_name == "G437A") %>% 
+  dplyr::filter(! region %in% c("Uganda", "Ghana")) %>% # lack variation, can't make a bifurcation plot
+  dplyr::select(c("haplohh", "pmap", "cM_Pos")) %>%
+  dplyr::rename(hh = haplohh,
+                pmapobj = pmap,
+                focal = cM_Pos) %>%
+  dplyr::mutate(nucleotides = T,
+                left = 10, 
+                right = 10,  
+                max.haps = 2,
+                palette = "RdBu",
+                reverse = FALSE,
+                relabel = NULL)
+
+spdrplots <- pmap(bifurmap, spiderplot)
+spdrplots[[1]] <- spdrplots[[1]] + ggtitle("DRC1.2 for G437A")
+spdrplots[[2]] <- spdrplots[[2]] + ggtitle("DRC2.2 for G437A")
+spdrplots[[3]] <- spdrplots[[3]] + ggtitle("Zambia for G437A") 
+do.call("grid.arrange", c(spdrplots, nrow=3))
+
+
+
+```
+
 
 ### dhps K540E
 ```{r, results="hide"}
@@ -160,8 +283,8 @@ bifurmap <- crtdhps_sub %>%
                 pmapobj = pmap,
                 focal = cM_Pos) %>%
   dplyr::mutate(nucleotides = T,
-                left = 13, # marker here is 13
-                right = 12, # max here would be 36-23 for marker
+                left = 13,  
+                right = 12,  
                 max.haps = 2,
                 palette = "RdBu",
                 reverse = FALSE,
@@ -206,8 +329,8 @@ bifurmap <- crtdhps_sub %>%
                 pmapobj = pmap,
                 focal = cM_Pos) %>%
   dplyr::mutate(nucleotides = T,
-                left = 13, # marker here is 13
-                right = 11, # max here would be 36-23 for marker
+                left = 13,  
+                right = 11,  
                 max.haps = 2,
                 palette = "RdBu",
                 reverse = FALSE,

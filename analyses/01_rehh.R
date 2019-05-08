@@ -117,12 +117,12 @@ drugres_ret_sub <- rehhfile %>%
   dplyr::left_join(x = drugres_ret_sub, y=., by = "name")
 
 #.................................
-# calculate ihh
+# call ihs calcs
 #.................................
 drugres_ret_sub$scanhh <- purrr::map(drugres_ret_sub$haplohh, rehh::scan_hh,
                                      limhaplo = 2,
                                      limehh = 0.05,
-                                     discard_integration_at_border = TRUE)
+                                     discard_integration_at_border = F)
 
 # looks like NAs are being produced from
 # https://github.com/cran/rehh/blob/master/src/hh_utils.c
@@ -130,9 +130,11 @@ drugres_ret_sub$scanhh <- purrr::map(drugres_ret_sub$haplohh, rehh::scan_hh,
 #   if (discard_integration_at_border && ((y_axis[0] > threshold) || (y_axis[n - 1] > threshold))) {  // If the EHH or EHHS is larger than the minimum value at either end of the chromosome, ...
 #   return (UNDEFND);                                                           // ... then do not compute the integral, and quit
 # Note, can turn this off by setting `discard_integration_at_border = F`
-# but this is a sensible parameter
-
-
+# Although this setting makes absolute sense in whole genome setting, I have borders at every loci
+# by design with MIPs (e.g. really multiplexed targeted amplicon sequencing). This means that I will have hard
+# cutoffs for every vcfRobject. As such, I am going to ignore boundaries under the assumption that because the MIP density is all constant
+# this gave all regions a "fair chance" to have that same border.
+# It will certainly inflate samples/regions integration with
 
 
 
@@ -154,6 +156,7 @@ drugres_ret_sub$ehh <- purrr::map2(drugres_ret_sub$haplohh, drugres_ret_sub$mark
   mrk = .y,
   limhaplo = 2,
   limehh = 0.05,
+  discard_integration_at_border = F,
   plotehh = F))
 
 

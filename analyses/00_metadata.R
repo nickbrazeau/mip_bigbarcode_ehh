@@ -79,7 +79,12 @@ drugres <- drugres %>%
 drugres$seqname <- drugres$chr # updated for our work
 
 # make sure we are still on the genomic map
-drugres$start[ which( drugres$start < 0 ) ] <- 0
+
+if(any(drugres$start < 0)){
+  warning("Have mapped beyone the start of the chromosome; automatic fix to 0 (beginning of chromosome)")
+  drugres$start[ which( drugres$start < 0 ) ] <- 0
+}
+
 drugends <- aggregate(drugres$end, list(factor(drugres$chr)), max)
 colnames(drugends)[1] <- "CHROM"
 chromends <- tibble(chr = names( rplasmodium::chromsizes_3d7()),
@@ -89,12 +94,12 @@ chromends <- tibble(chr = names( rplasmodium::chromsizes_3d7()),
     dplyr::left_join(drugends, .) %>%
   dplyr::mutate(offend = x > chromend) )
 if(any(drugends$offend)){
-  warning("Have mapped beyone the end of the chromosome; automatic fix")
+  warning("Have mapped beyone the end of the chromosome; automatic fix to end of chromosome")
 
   drugres <- drugres %>%
     dplyr::left_join(x=., y=chromends, by =  "chr") %>%
     dplyr::mutate(end = ifelse(end > chromend, chromend, end)) %>%
-    dplyr::select(-c("chromend", "x"))
+    dplyr::select(-c("chromend"))
 }
 
 # rename drug res gene_id to geneid for compatibility with vcfRmanip
@@ -102,5 +107,6 @@ drugres <- drugres %>%
   dplyr::rename(geneid = gene_id,
                 name = gene_symbol) # for legacy reasons
 
-
+# clean up
+rm(drugends)
 

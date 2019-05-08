@@ -117,7 +117,7 @@ crtdhps_sub$ehh <- map2(crtdhps_sub$haplohh, crtdhps_sub$marker, ~rehh::calc_ehh
   mrk = .y,
   limhaplo = 2,
   limehh = 0.05,
-  discard_integration_at_border = T,
+  discard_integration_at_border = F,
   plotehh = F)
 )
 
@@ -148,10 +148,27 @@ crossehhplotdf$ehhdf <- map(crossehhplotdf$ehhdf, function(x){
 # make plots for ehh continous
 #.................................
 plotehh <- function( region, mutation, name, ehhdf){
-  plotObj <- ggplot() +
-    geom_line(data=ehhdf, aes(x=pos, y=ehh, colour = factor(allele), group = factor(allele))) +
+  plotObj <- ehhdf %>%
+    dplyr::mutate(allele = factor(allele),
+                  allele = forcats::fct_drop(allele))
+
+  chck <- plotObj %>%
+    dplyr::group_by(allele) %>%
+    dplyr::summarise( checknotflat = all(ehh == 0)) %>%
+    dplyr::filter(checknotflat) %>%
+    dplyr::select(allele) %>%
+    unlist(.)
+
+  if(!purrr::is_empty(chck)){
+    plotObj <- plotObj %>%
+      dplyr::filter(! allele %in% chck)
+  }
+
+  plotObj %>%
+    ggplot() +
+    geom_line(aes(x=pos, y=ehh, colour = allele, group = allele)) +
     scale_color_manual("Allele Status", values = c("#4575b4", "#d73027")) +
-    ggtitle(paste0("This is mutation: ", mutation, " on gene ", name, " for region ", region)) +
+    ggtitle(paste0("EHH Decay Plot for ", mutation, " in ", region)) +
     labs(x = "position (cM)", y = "EHH Statistic") +
     scale_color_manual("Allele", labels = c("Ancestral", "Derived"), values = c("#2166ac", "#b2182b")) +
     theme_bw() +
@@ -163,33 +180,68 @@ crossehhplotdf$ehhplot <-  pmap(crossehhplotdf[,c("region", "mutation", "name", 
 #.................................
 # make haplotype plots
 #.................................
-crossehhplotdf$hapdf <- map2(crtdhps_sub$thap, crtdhps_sub$pmap, function(hapsdf = .x, posdf = .y){
-  hapsdf <- t(hapsdf)
-  hapsdf <- as.data.frame(cbind(paste0("smpl", seq(1:nrow(hapsdf))), hapsdf))
-  colnames(hapsdf) <- c("smpl", posdf$snpname)
+crossehhplotdf$hapdf <- pmap(crtdhps_sub[, c("thap", "pmap", "haplohh", "marker")],
+                             function(thap, pmap, haplohh, marker){
+  # have set this up so that we can facet by the original snp we identified
+  # want to be able to look at haplotypes based on ancestral versus derived site
 
-  ret <- gather(hapsdf, key = "loci", value = "allele", 2:ncol(hapsdf))
-  ret <- ret %>%
-    dplyr::mutate(loci = factor(loci,
-                                levels =  unique(loci),
-                                ordered = T))
+  thap <- t(thap)
+  thap <- as.data.frame(cbind(paste0("smpl", seq(1:nrow(thap))), thap))
+  colnames(thap) <- c("smpl", pmap$snpname)
+
+  focalsnpname <-haplohh@snp.name[marker]
+
+  allelepol <- thap %>%
+    dplyr::select(c("smpl", focalsnpname)) %>%
+    dplyr::mutate(snpname = focalsnpname,
+                  focalsnpused = focalsnpname) %>%
+    dplyr::rename(allele = focalsnpname) %>%
+    dplyr::left_join(x=., y=pmap, by = "snpname") %>%
+    dplyr::mutate(
+      allelepol = ifelse(allele == anc, "A", ifelse(allele == der, "D", NA))
+    ) %>%
+    dplyr::select(c("smpl", "allelepol", "focalsnpused"))
+
+  ret <- thap %>%
+    dplyr::left_join(x=., y=allelepol, by = "smpl") %>%
+    tidyr::gather(., key = "snpname", value = "allele", 2:(ncol(.)-2)) %>%
+    dplyr::rename(loci = snpname)
 
   return(ret)
 })
 
 
-plothap <- function(hapdf, region, name){
-  plotObj <- ggplot() +
-    geom_tile(data=hapdf, aes(x=loci, y=smpl, fill = factor(allele))) +
-    scale_fill_manual("Allele", values = c("#d73027", "#fee090", "#66bd63", "#4575b4")) +
-    ggtitle(paste0("Haplotype for Gene:", name, " in ", region)) +
+plothap <- function(hapdf, region, mutation){
+  asterickmarks <- hapdf %>%
+    dplyr::select(c("smpl", "allelepol", "focalsnpused")) %>%
+    dplyr::filter(!is.na(allelepol)) %>%  # these sites are immediately dropped by rehh, so exclude
+    dplyr::group_by(allelepol) %>%
+    dplyr::summarise(
+      height = mean(as.numeric(factor(smpl))),
+      loci = unique(focalsnpused)
+    ) %>%
+    dplyr::mutate(ast = "*",
+                  height = ifelse(height == 1, 0.5, height))
+
+  plotObj <- hapdf %>%
+    dplyr::mutate(allele = forcats::fct_explicit_na(allele)) %>%
+    dplyr::filter(!is.na(allelepol)) %>%  # these sites are immediately dropped by rehh, so exclude
+    ggplot() +
+    geom_tile(aes(x=loci, y=smpl, fill = allele)) +
+    geom_text(data = asterickmarks, aes(x=loci, y=height, label = ast), size = 8, color = "#ff7f00") +
+    facet_grid(allelepol ~ ., scale = "free_y", space = "free_y") +
+    scale_fill_manual("Allele", values = c("#d73027", "#fee090", "#66bd63", "#4575b4", "#f0f0f0")) +
+    ggtitle(paste0("Haplotype Plot for ", mutation, " in ", region)) +
+    ylab("Samples") + xlab("Loci") +
     theme_bw() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 10),
-          axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5, size = 5),
+          axis.title = element_text(face = "bold", hjust = 0.5, size = 8.5),
+         # axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5, size = 3),
+         axis.text.x = element_blank(),
           axis.text.y = element_blank()
     )
 }
-crossehhplotdf$happlot <-  pmap(crossehhplotdf[,c("hapdf", "region", "name")], plothap)
+crossehhplotdf$happlot <-  pmap(crossehhplotdf[,c("hapdf", "region", "mutation")], plothap)
 
 
 #.................................
