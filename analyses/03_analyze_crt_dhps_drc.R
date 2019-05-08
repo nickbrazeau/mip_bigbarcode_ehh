@@ -163,14 +163,15 @@ crossehhplotdf$ehhplot <-  pmap(crossehhplotdf[,c("region", "mutation", "name", 
 #.................................
 # make haplotype plots
 #.................................
-crossehhplotdf$hapdf <- map(crtdhps_sub$thap, function(x){
-  x <- t(x)
-  x <- as.data.frame(cbind(paste0("smpl", seq(1:nrow(x))), x))
-  colnames(x) <- c("smpl", paste0("loci", seq(1:(ncol(x)-1))))
-  ret <- gather(x, key = "loci", value = "allele", 2:ncol(x))
+crossehhplotdf$hapdf <- map2(crtdhps_sub$thap, crtdhps_sub$pmap, function(hapsdf = .x, posdf = .y){
+  hapsdf <- t(hapsdf)
+  hapsdf <- as.data.frame(cbind(paste0("smpl", seq(1:nrow(hapsdf))), hapsdf))
+  colnames(hapsdf) <- c("smpl", posdf$snpname)
+
+  ret <- gather(hapsdf, key = "loci", value = "allele", 2:ncol(hapsdf))
   ret <- ret %>%
     dplyr::mutate(loci = factor(loci,
-                                levels =  paste0("loci", seq(1:(ncol(x)-1))),
+                                levels =  unique(loci),
                                 ordered = T))
 
   return(ret)
@@ -191,29 +192,9 @@ plothap <- function(hapdf, region, name){
 crossehhplotdf$happlot <-  pmap(crossehhplotdf[,c("hapdf", "region", "name")], plothap)
 
 
-
-
-
 #.................................
-# make bifurcation plots
+# write out
 #.................................
-bifurmap <- crtdhps_sub %>%
-  dplyr::select(c("haplohh", "pmap", "cM_Pos")) %>%
-  dplyr::rename(hh = haplohh,
-                pmapobj = pmap,
-                focal = cM_Pos) %>%
-  dplyr::mutate(nucleotides = T,
-                nucleotidetrim = 5,
-                left = 8,
-                right = 8,
-                max.haps = 2,
-                palette = "RdBu",
-                reverse = FALSE,
-                relabel = NULL)
-
-
-crossehhplotdf$spdrplot <- pmap(bifurmap, spiderplot)
-
-save(crossehhplotdf, drugregions,
-        file = "results/03-analyze_crt_dhps_drc.rda")
+save(crossehhplotdf, crtdhps_sub,
+        file = "data/derived/03-analyze_crt_dhps_drc.rda")
 

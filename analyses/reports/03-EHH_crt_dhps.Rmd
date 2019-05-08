@@ -1,0 +1,225 @@
+--- 
+title: "EHH/iHS Big Barcode Final Report" 
+author: "Nicholas F. Brazeau" 
+date: "`r format(Sys.time(), '%B %d, %Y')`" 
+output: 
+  html_document: 
+    highlight: tango 
+    theme: lumen 
+    toc: yes 
+    toc_float: yes 
+    toc_depth: 3 
+    code_folding: hide
+editor_options:  
+  chunk_output_type: console
+--- 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, fig.width = 25, fig.height = 18)
+library(tidyverse)
+library(gridExtra)
+source("~/Documents/GitHub/mip_bigbarcode_ehh/R/02-spiderplot.R")
+
+```
+
+# Updates
+After talking with JJJ, JAB, SRM, and RV, have elected to subset just to crt 76T, and DHPS 540E and DHPS 581G. 
+
+## Approach
+
+### Data Wrangling Steps
+
+1. Convert MIPAnalyzer object to a vcfR object and then VCF
+	+ Bob accepted PR, this is now in `MIPAnalyzer` as MIPanalyzerbi2vcfR. Passed `vcf-validator`
+	+ One thing to consider, this function expects you to assign a "cutoff" on the Non-ref WSAF to assign the GT in the format column. This parameter will be sensitive to our results as any HET calls are coded as missing when making the haplotype files (see below) 
+2. Polarized VCF (i.e. assigned ancestral allele based on _P. reichenowi_) using Andrew Morgan's `vcfdo` package. 
+3. Used genetic map that Andrew Morgan put together from Pfcross to impute cM position from our VCF base-pair positions
+4. Subset to monoclonal samples identified by OJ Watson (ongoing) 
+5. Regions set by OJ Watson
+	+ After discussion, we elected to keep this simple and use k-means clustering with a number of clusters that we wanted to see (i.e. 4 clusters in the DRC to get a N/E/S/W groups). 
+6. Pulled in Drug Resistance regions identifed by Oz and converted from 0-based to 1-based. Then set window as 100kb upstream and downstream of the start/end of the gene, respectfully. 
+	+ These regions are now also updated in the `rplasmodium` package 
+
+#### `rehh` Filters
+
+1. `rehh` package has some default fiters (see [here](https://cran.r-project.org/web/packages/rehh/vignettes/rehh.pdf) wrt to `min_perc_geno.hap`, `min_perc_geno.snp`, and `min_maf` and less wrt `limehh` and `limhaplo`).
+	+ The "min" cutoffs for the `data2haplohh` function will require some "tweaking".  
+	+ The defaults I used for the _haplotype statistics_ of limit haplotype and SNPs to 0% and the assumption that we filtered adequately upstream and limited ehh to 0.05 (common). 
+	+ **NOTE, I did exclude sites with all SNP missing information, as those were sites that we were not able to polarize the allele into an ancestral and derived "haplotype".**. 
+
+
+### Notes
+
+vcfR manipulations are being hosted in the R-package `IDEELResearch/vcfRmanip` and includes tools to subset and alter the vcfR class. However, when writing out to disk with `vcfR::write.vcf` the compression strategy used does not agree with `bcftools` (wants `bgzip`). A quick fix is `gunzip vcf ; bgzip vcf`. 
+
+```{r, results="hide"}
+load("~/Documents/GitHub/mip_bigbarcode_ehh/data/derived/03-analyze_crt_dhps_drc.rda")
+mc <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/monoclonal_samples.rds")
+mcsub <- mc %>% 
+  dplyr::filter(monoclonal_rating == 1)
+
+basemap <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/map_bases/basemap.rds")
+
+```
+
+## Population Structure &  Map
+**Based on OJ's K-means clustering with DRC of 2 groups because this was closest to SRM's question of an East/West Divide. Can split out more but waiting for filtering updates**. 
+
+```{r, results="hide", fig.width=8, fig.height=8, fig.align='center'}
+(map <- ggplot() + 
+  basemap +
+  geom_point(data = mcsub, aes(x=long, y=lat, color = factor(KMC2))) +
+  ggtitle(paste("Locations of the", nrow(mcsub), "Monoclonal Samples")) +
+  labs(caption = "Note, K-Means Clustering of 2 Performed on Entire Data Set. Only the monoclonals are shown here.") +
+    scale_color_manual("K-Means Groups", values = c("#1f78b4", "#33a02c", "#984ea3", "#e41a1c", "#a65628", "#ff7f00")) +
+  theme(legend.position = "bottom",
+        plot.title = element_text(face = "bold", hjust = 0.5),
+        axis.title = element_blank(),
+        axis.ticks = element_blank())  )
+
+```
+
+
+
+# Selection Viz
+## Loci {.tabset .tabset-fade .tabset-pill}
+### crt K76T
+It is interesting that only DRC has ancestral and derived alleles for _crt_. Note, Ghana has one. 
+```{r, results="hide"}
+
+#.................................
+# crt loci 76T 
+#.................................
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "K76T") %>% 
+  .$ehhplot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "K76T") %>% 
+  .$happlot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+
+bifurmap <- crtdhps_sub %>%
+   dplyr::filter(mut_name == "K76T") %>% 
+  dplyr::filter(! region %in% c("Uganda", "Zambia", "Ghana")) %>% # lack variation, can't make a bifurcation plot
+  dplyr::select(c("haplohh", "pmap", "cM_Pos")) %>%
+  dplyr::rename(hh = haplohh,
+                pmapobj = pmap,
+                focal = cM_Pos) %>%
+  dplyr::mutate(nucleotides = T,
+                left = 11, # marker here is 11
+                right = 11, # max here would be 66-11
+                max.haps = 2,
+                palette = "RdBu",
+                reverse = FALSE,
+                relabel = NULL)
+
+spdrplots <- pmap(bifurmap, spiderplot)
+
+spdrplots <- pmap(bifurmap, spiderplot)
+spdrplots[[1]] <- spdrplots[[1]] + ggtitle("DRC1.2 for K76T")
+spdrplots[[2]] <- spdrplots[[2]] + ggtitle("DRC2.2 for K76T")
+do.call("grid.arrange", c(spdrplots, nrow=3))
+
+
+
+```
+
+### dhps K540E
+```{r, results="hide"}
+
+#.................................
+# dhps loci 540 
+#.................................
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "K540E") %>% 
+  .$ehhplot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "K540E") %>% 
+  .$happlot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+
+bifurmap <- crtdhps_sub %>%
+   dplyr::filter(mut_name == "K540E") %>% 
+  dplyr::filter(! region %in% c("Uganda", "Ghana")) %>% # lack variation, can't make a bifurcation plot
+  dplyr::select(c("haplohh", "pmap", "cM_Pos")) %>%
+  dplyr::rename(hh = haplohh,
+                pmapobj = pmap,
+                focal = cM_Pos) %>%
+  dplyr::mutate(nucleotides = T,
+                left = 13, # marker here is 13
+                right = 12, # max here would be 36-23 for marker
+                max.haps = 2,
+                palette = "RdBu",
+                reverse = FALSE,
+                relabel = NULL)
+
+spdrplots <- pmap(bifurmap, spiderplot)
+spdrplots[[1]] <- spdrplots[[1]] + ggtitle("DRC1.2 for K540E")
+spdrplots[[2]] <- spdrplots[[2]] + ggtitle("DRC2.2 for K540E")
+spdrplots[[3]] <- spdrplots[[3]] + ggtitle("Zambia for K540E") 
+do.call("grid.arrange", c(spdrplots, nrow=3))
+
+
+
+```
+
+### dhps A581G
+```{r, results="hide"}
+
+#.................................
+# dhps loci 581
+#.................................
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "A581G") %>% 
+  .$ehhplot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+plts <- crossehhplotdf %>% 
+  dplyr::filter(mutation == "A581G") %>% 
+  .$happlot 
+
+do.call("grid.arrange", c(plts, ncol=3))
+
+
+
+bifurmap <- crtdhps_sub %>%
+   dplyr::filter(mut_name == "A581G") %>% 
+  dplyr::filter(! region %in% c("Zambia", "Ghana", "DRC2.2")) %>% # lack variation, can't make a bifurcation plot
+  dplyr::select(c("haplohh", "pmap", "cM_Pos")) %>%
+  dplyr::rename(hh = haplohh,
+                pmapobj = pmap,
+                focal = cM_Pos) %>%
+  dplyr::mutate(nucleotides = T,
+                left = 13, # marker here is 13
+                right = 11, # max here would be 36-23 for marker
+                max.haps = 2,
+                palette = "RdBu",
+                reverse = FALSE,
+                relabel = NULL)
+
+spdrplots <- pmap(bifurmap, spiderplot)
+spdrplots[[1]] <- spdrplots[[1]] + ggtitle("DRC1.2 for A581G")
+spdrplots[[2]] <- spdrplots[[2]] + ggtitle("Uganda for A581G") 
+do.call("grid.arrange", c(spdrplots, nrow=3))
+
+
+
+```
+
+###

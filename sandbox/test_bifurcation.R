@@ -37,35 +37,18 @@ haplohh <- rehh::data2haplohh(hap_file="~/Desktop/test_spiderplot/testspiderplot
 
 
 
-plotly::ggplotly( spiderplot(     hh = haplohh,
+spiderplot(     hh = haplohh,
                 pmapobj = pmap,
                 focal = 400653,
                 nucleotides = T,
-                nucleotidetrim = 5,
-                left = 20,
+                left = 22,
                 right = 25,
                 max.haps = 2,
                 palette = "RdBu",
                 reverse = FALSE,
-                relabel = NULL     ) )
+                relabel = NULL     )
 
-bifurcation.diagram(haplohh = haplohh, mrk_foc = 23, nmrk_l = 20, nmrk_r = 25, limhapcount = 2, all_foc = 2)
 
-hh = haplohh
-pmapobj = pmap
-focal = 400653
-nucleotides = T
-nucleotidetrim = 5
-left = 20
-right = 25
-max.haps = 2
-palette = "RdBu"
-reverse = FALSE
-relabel = NULL
-
-nmrk_l=left
-nmrk_r=right
-limhapcount = max.haps
 
 
 
