@@ -8,7 +8,9 @@
 #' @param reverse logical; if `TRUE`, put derived allele in upper panel
 #' @param nucleotides logical; if `TRUE`, put nucleotide label at each node to show how haplotype core changes
 #' @param pmapobj logical; if \(nucleotides) is set to `TRUE`, a (pmap) object from the .inp file is required
-#' @param nucleotidetrim numeric; number of markers to keep from origin (less than or equal to this number)
+#' @param nucleotidetrim_left numeric; positions of nucleotide annotations (left truncates)
+#' @param nucleotidetrim_right numeric; positions of nucleotide annotations (right truncates)
+#' @param scale_text numeric; a scaling factor for the size of the nucleotide text at the nodes. Must be between 0-1.
 #' @param relabel a named vector to use for re-labelling panels; default labels are 'Ancestral' and 'Derived'
 #' @param ... other arguments passed through to rehh::bifurcation.diagram()
 #'
@@ -16,7 +18,7 @@
 #'
 #' @details needs ggplot2 and dplyr loaded in your environment; requires rehh and RColorBrewer, but only via a namespace
 
-spiderplot <- function(hh, focal, nucleotides = T, pmapobj = NULL, nucleotidetrim = NA,
+spiderplot <- function(hh, focal, nucleotides = T, pmapobj = NULL, nucleotidetrim_left = NA, nucleotidetrim_right = NA, scale_text = 0.5,
                        left = 10, right = 10, max.haps = 10, palette = "RdBu", reverse = FALSE, relabel = NULL, ...) {
 
   if(nucleotides == T & is.null(pmapobj)){
@@ -28,14 +30,14 @@ spiderplot <- function(hh, focal, nucleotides = T, pmapobj = NULL, nucleotidetri
   pfocal <- hh@position[ifocal]
 
   ## get line segments for bifurcation plot
-  ancestral = .my.bifurcation.diagram(hh, ifocal, 1, nmrk_l = left, nmrk_r = right, limhapcount = max.haps, ... )
-  derived   = .my.bifurcation.diagram(hh, ifocal, 2, nmrk_l = left, nmrk_r = right, limhapcount = max.haps, ... )
+  ancestral = .my.bifurcation.diagram(hh, mrk_foc = ifocal, all_foc = 1, nmrk_l = left, nmrk_r = right, limhapcount = max.haps, ... )
+  derived   = .my.bifurcation.diagram(hh, mrk_foc = ifocal, all_foc = 2, nmrk_l = left, nmrk_r = right, limhapcount = max.haps, ... )
   rez <- bind_rows(ancestral$rez, derived$rez,
                    .id = "allele" )
 
   rez$allele <- factor(rez$allele, levels = c(1,2), labels = c("ancestral", "derived"))
 
-  ## find position of 'origin' -- place in middle fo plot where all the bifurcations start
+  ## find position of 'origin' -- place in middle of plot where all the bifurcations start
   find_origin <- function(df) {
     o <- dplyr::arrange(subset(df, x0 == pfocal), desc(n))$y0[1]
     tibble(origin = o, pos = pfocal)
@@ -46,8 +48,8 @@ spiderplot <- function(hh, focal, nucleotides = T, pmapobj = NULL, nucleotidetri
   rez <- group_by(rez, allele) %>%
     mutate(bin = factor(as.numeric(cut(n, 5)) + 5*as.numeric(allele == "derived"), levels = 1:10))
 
-  ## section for haplotype nodes
 
+  ## section for haplotype nodes
   hapnodes <- bind_rows(ancestral$hapnodes, derived$hapnodes,
                         .id = "allele" )
 
@@ -65,28 +67,23 @@ spiderplot <- function(hh, focal, nucleotides = T, pmapobj = NULL, nucleotidetri
   hapnodes <- hapnodes %>%
     dplyr::left_join(x = ., y = pmapobj, by = c("X")) %>%
     dplyr::mutate(
-      haplocharancder = substr(HAPLO, 1, 1),
-      haplochar = ifelse(haplocharancder == 1, anc,
-                         ifelse(haplocharancder == 2, der,
-                                ifelse(haplocharancder == "" & mrk == 0, NA, # NA because core you picked
-                                       "ERROR")
-                         )
-      ),
+      allelebase = ifelse(allelepol == 1, anc, ifelse(allelepol == 2, der, NA)),
       n = as.numeric(n),
-      ntxt = n*0.6
+      ntxt_scale = as.numeric(n)*scale_text)
 
-    ) %>%
-    dplyr::filter(mrk != 0)
-
-  if(any(hapnodes$haplochar == "ERROR")){
+  if(any(is.na(hapnodes$allelebase))){
     stop("There was an issue merging the .inp file with the EHH calculations for the \n
              ancestral or derived haplotypes")
   }
 
-  if(!is.na(nucleotidetrim)){
+  if(!is.na(nucleotidetrim_right)){
     hapnodes <- hapnodes %>%
-      dplyr::mutate(mrk = as.numeric(mrk)) %>%
-      dplyr::filter(mrk <= nucleotidetrim)
+      dplyr::filter(X <= nucleotidetrim_right)
+  }
+
+  if(!is.na(nucleotidetrim_left)){
+    hapnodes <- hapnodes %>%
+      dplyr::filter(X >= nucleotidetrim_left)
   }
 
 
@@ -119,7 +116,7 @@ spiderplot <- function(hh, focal, nucleotides = T, pmapobj = NULL, nucleotidetri
   if(nucleotides == T){
     plotObj <- plotObj +
       geom_point(data = hapnodes, aes(x = X, y = Y, size = n), pch = 21, fill = "#f0f0f0") +
-      geom_text(data = hapnodes, aes(x = X, y = Y, label = haplochar, size = ntxt), fontface = "bold")
+      geom_text(data = hapnodes, aes(x = X, y = Y, label = allelebase, size = ntxt_scale), fontface = "bold")
   }
 
   return(plotObj)
@@ -133,7 +130,7 @@ spiderplot <- function(hh, focal, nucleotides = T, pmapobj = NULL, nucleotidetri
 
 .my.bifurcation.diagram <- function(haplohh,
                                     mrk_foc,
-                                    all_foc=1,
+                                    all_foc,
                                     nmrk_l=2,
                                     nmrk_r=2,
                                     limhapcount=10,
@@ -213,7 +210,20 @@ spiderplot <- function(hh, focal, nucleotides = T, pmapobj = NULL, nucleotidetri
   }
 
   # nfb addition
-  node_coords_haps_right <- cbind.data.frame(coord_r, det_haplo_r, side = "right", stringsAsFactors = F)
+  # find inflection points, where are SNPs that cause the haplotypes to break
+  inflxnpnt_right = as.data.frame(coord_r) %>%
+    dplyr::group_by(X) %>% # X here is the original position where the SNP is location
+    dplyr::summarise(poscounts = length(X)) %>% # count number of times X is repeated
+    dplyr::filter(poscounts > 1) %>% # one is start, drop
+    dplyr::group_by(poscounts) %>% # now find the min for each of these counts. The first position is the place where the "SNP" inflection points happens (e.g. we have to split from one line to two line and then from two to three, etc)
+    dplyr::summarise(inflxnpnt = min(X)) %>% # min since we are moving upstream
+    dplyr::select(c("inflxnpnt")) %>%
+    unlist(.)
+
+  # now find the coordinates of those inflection points and extract the alleles
+  node_coords_haps_right <- cbind.data.frame(coord_r, det_haplo_r, side = "right", stringsAsFactors = F) %>%
+    dplyr::filter(X %in% inflxnpnt_right) %>%
+    dplyr::mutate(allelepol = base::substring(HAPLO, mrk))
 
 
   #Recup haplos on the Left
@@ -271,7 +281,21 @@ spiderplot <- function(hh, focal, nucleotides = T, pmapobj = NULL, nucleotidetri
 
   # nfb addition
   coord_l[,2]=coord_l[,2] + coord_r[1,2] - coord_l[1,2] # from below to get left side to slope down always
-  node_coords_haps_left <- cbind.data.frame(coord_l, det_haplo_l, side = "left", stringsAsFactors = F)
+
+  # find inflection points, where are SNPs that cause the haplotypes to break for LEFT
+  inflxnpnt_left = as.data.frame(coord_l) %>%
+    dplyr::group_by(X) %>% # X here is the original position where the SNP is location
+    dplyr::summarise(poscounts = length(X)) %>% # count number of times X is repeated
+    dplyr::filter(poscounts > 1) %>% # one is start, drop
+    dplyr::group_by(poscounts) %>% # now find the min for each of these counts. The first position is the place where the "SNP" inflection points happens (e.g. we have to split from one line to two line and then from two to three, etc)
+    dplyr::summarise(inflxnpnt = max(X)) %>% # max now since we are moving downstream
+    dplyr::select(c("inflxnpnt")) %>%
+    unlist(.)
+
+  # now find the coordinates of those inflection points and extract the alleles
+  node_coords_haps_left <- cbind.data.frame(coord_l, det_haplo_l, side = "left", stringsAsFactors = F) %>%
+    dplyr::filter(X %in% inflxnpnt_left) %>%
+    dplyr::mutate(allelepol = base::substring(HAPLO, mrk))
 
   node_coords_haps <- rbind.data.frame(node_coords_haps_left, node_coords_haps_right, stringsAsFactors = F)
 
