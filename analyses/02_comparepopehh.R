@@ -6,19 +6,54 @@
 #.................................
 # imports
 #.................................
-source("R/01-EHH_tools.R")
 source("analyses/00_metadata.R")
+source("R/01-EHH_tools.R")
 library(tidyverse)
 devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
-load("results/01-drugres_obj_rehh.rda")
+library(rehh)
 
 mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
 
+#.................................
+# datawrangle
+#.................................
+#.....................
+# set up drug res sites
+#.....................
+drugreslist <- split(drugres, factor(1:nrow(drugres)))
 
-#.................................
-# need drug and population specific sites and combine
-#.................................
+#.....................
+# remove sites that lack polarization
+#.....................
+
+nopolar <- getpmap.polarize(mipbb_dr_panel_vcfR) %>%
+  dplyr::filter(is.na(anc)) %>%
+  dplyr::mutate(
+    CHROM = stringr::str_split_fixed(snpname, "_(?!.*_)", n=2)[,1],
+    POS = stringr::str_split_fixed(snpname, "_(?!.*_)", n=2)[,2],
+    POS = as.numeric(POS)
+  ) %>%
+  # needs to be in bed format
+  dplyr::rename(chr = CHROM) %>%
+  dplyr::mutate(
+    start = POS,
+    end = POS,
+    gene_symbol = ".",
+    score = ".",
+    strand = ".",
+    geneid = snpname,
+    seqname = chr
+  ) %>%
+  dplyr::select(c("chr", "start", "end", "gene_symbol", "score", "geneid", "seqname"))
+
+mipbb_dr_panel_vcfR_ancpolar <- vcfRmanip::vcffilter_ChromPos(vcfRobject = mipbb_dr_panel_vcfR,
+                                                              chromposbed = nopolar)
+
+
+#.....................
+# Set up Samples by Regions
+#.....................
 regions <- mc %>%
   magrittr::set_colnames(tolower(colnames(.))) %>%
   dplyr::rename(region = kmc2) %>%
@@ -40,13 +75,14 @@ drugregions <- as_tibble(cbind.data.frame(regionlong, drugres))
 subsetlocismpls <- function(smpls, seqname, start, end, geneid){
 
   chromposbed = tibble(seqname = seqname, start = start, end = end, geneid = geneid)
-  ret <- vcfRmanip::vcfR2SubsetChromPos(vcfRobject = mipbb_dr_panel_vcfR, # global
+  ret <- vcfRmanip::vcfR2SubsetChromPos(vcfRobject = mipbb_dr_panel_vcfR_ancpolar, # global
                                         chromposbed = chromposbed) # subset loci
   ret <- ret[, colnames(ret@gt) %in% c("FORMAT", smpls)] # subset samples
   return(ret)
 }
 
-drugregions$vcfRobj <- purrr::pmap(drugregions[,c("smpls", "seqname", "start", "end", "geneid")], subsetlocismpls)
+drugregions$vcfRobj <- purrr::pmap(drugregions[,c("smpls", "seqname", "start", "end", "geneid")],
+                                   subsetlocismpls)
 
 
 #.................................
@@ -97,8 +133,8 @@ rehhfile$haplohh <- purrr::map2(rehhfile$thap_files, rehhfile$pmap_files,  ~rehh
                                                                                          haplotype.in.columns=TRUE,
                                                                                          recode.allele = T,
                                                                                          min_perc_geno.hap = 0,
-                                                                                         min_perc_geno.snp = 1, # if entire SNP is missing information, it is due to the fact that we weren't able to polarize it (otherwise would have been dropped upstream); need to drop those as that information is useless
-                                                                                         min_maf = 0)) # !! TWEAKING NEEDED
+                                                                                         min_perc_geno.snp = 0,
+                                                                                         min_maf = 0)) # Assuming Bob's filters upstream good enough
 
 
 #.................................
@@ -115,31 +151,32 @@ drugregions_sub <- rehhfile %>%
 #.................................
 drugregions_sub$scanhh <- purrr::map(drugregions_sub$haplohh, rehh::scan_hh,
                                      limhaplo = 2,
-                                     limehh = 0.05)
+                                     limehh = 0.05,
+                                     discard_integration_at_border = TRUE)
+
+# looks like NAs are being produced from
+# https://github.com/cran/rehh/blob/master/src/hh_utils.c
+# line 412 - 426
+#   if (discard_integration_at_border && ((y_axis[0] > threshold) || (y_axis[n - 1] > threshold))) {  // If the EHH or EHHS is larger than the minimum value at either end of the chromosome, ...
+#   return (UNDEFND);                                                           // ... then do not compute the integral, and quit
+# Note, can turn this off by setting `discard_integration_at_border = F`
+# but this is a sensible parameter
 
 
 
 # Find the marker with the largest integrated EHHS statistic by Sabeti (unnormalized)
-# drugregions_sub$marker <- purrr::map(drugregions_sub$scanhh, function(x){
-#   maxmarker <- which(x$iES_Sabeti_et_al_2007 == max(x$iES_Sabeti_et_al_2007, na.rm = T))
-#   maxmarker <- ifelse(purrr::is_empty(maxmarker), NA, maxmarker)
-#   return(maxmarker)
-# })
-#
-#
-# # Throw away loci that don't have a clear marker
-# drugregions_sub <- drugregions_sub %>%
-#   dplyr::filter(!is.na(marker))
+drugregions_sub$marker <- purrr::map(drugregions_sub$scanhh, function(x){
+  maxmarker <- which(x$iES_Sabeti_et_al_2007 == max(x$iES_Sabeti_et_al_2007, na.rm = T))
+  maxmarker <- ifelse(purrr::is_empty(maxmarker), NA, maxmarker)
+  return(maxmarker)
+})
 
 
-# manually set for now
-# markerdf <- tibble::tibble(
-#   name = c("kelch", "crt", "mdr1", "dhps", "dhfr", "pfabcI3", "pfpare", "pfaat1"),
-#   mutation = c("kelch-misc", "crt-N75E", "mdr1-N86Y", "dhps-K540E", "dhfr-misc",  "pfabcI3-misc", "pfpare-?-strong", "pfaat1-misc"),
-#   marker = c(15, 11, 14, 16, 5, 6, 48, 12)
-# )
-# drugregions_sub <- left_join(drugregions_sub, markerdf, by = "name")
-# changed when we went out to 100kb
+# Throw away loci that don't have a clear marker
+drugregions_sub <- drugregions_sub %>%
+  dplyr::filter(!is.na(marker))
+
+
 
 
 #.................................
@@ -150,6 +187,7 @@ drugregions_sub$ehh <- map2(drugregions_sub$haplohh, drugregions_sub$marker, ~re
                             mrk = .y,
                             limhaplo = 2,
                             limehh = 0.05,
+                            discard_integration_at_border = T,
                             plotehh = F)
 )
 
@@ -179,7 +217,7 @@ crossehhplotdf$ehhdf <- map(crossehhplotdf$ehhdf, function(x){
 #.................................
 # make plots for ehh continous
 #.................................
-plotehh <- function(ehhdf, region, marker){
+plotehh <- function(ehhdf, region, marker, geneid){
   plotObj <- ggplot() +
     geom_line(data=ehhdf, aes(x=pos, y=ehh, colour = factor(allele), group = factor(allele))) +
     scale_color_manual("Allele Status", values = c("#4575b4", "#d73027")) +
@@ -193,7 +231,7 @@ crossehhplotdf$ehhplot <-  pmap(crossehhplotdf[,c("region", "marker", "geneid", 
 #.................................
 # make haplotype plots
 #.................................
-crossehhplotdf$hapdf <- map(dhps$thap, function(x){
+crossehhplotdf$hapdf <- map(drugregions_sub$thap, function(x){
   x <- t(x)
   x <- as.data.frame(cbind(paste0("smpl", seq(1:nrow(x))), x))
   colnames(x) <- c("smpl", paste0("loci", seq(1:(ncol(x)-1))))
@@ -225,4 +263,4 @@ crossehhplotdf$happlot <-  pmap(crossehhplotdf[,c("region", "name", "hapdf")], p
 #.................................
 # write out
 #.................................
-save(drugregions_sub, crossehhplotdf, file = "results/02-drugregions_populations_subcompar.rda")
+save(drugregions_sub, crossehhplotdf, file = "data/derived/02-drugres_obj_rehh_subpopulationlevel.rda")

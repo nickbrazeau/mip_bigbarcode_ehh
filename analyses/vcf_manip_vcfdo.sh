@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-path=/Users/nickbrazeau/Documents/GitHub/mip_bigbarcode_ehh/data # user can define path
-FASTA=/Users/nickbrazeau/Documents/MountPoints/mountIDEEL/julianog/users/apm/p_reichenowi/ancestral.fa # apm downloaded from p_reich MS and imputed alleles
+path=~/Documents/GitHub/mip_bigbarcode_ehh/data/ # user can define path
+FASTA=~/Documents/MountPoints/mountIDEEL/julianog/users/apm/p_reichenowi/ancestral.fa # apm downloaded from p_reich MS and imputed alleles
 
 cd $path
 

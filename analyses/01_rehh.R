@@ -14,23 +14,55 @@ library(tidyverse)
 devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
 library(rehh)
-library(gridExtra)
+
 
 mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
 
 #.................................
 # datawrangle
 #.................................
+#..............
+# set up drug res sites
+#..............
 drugreslist <- split(drugres, factor(1:nrow(drugres)))
 
+#..............
+# remove sites that lack polarization
+#..............
+
+nopolar <- getpmap.polarize(mipbb_dr_panel_vcfR) %>%
+  dplyr::filter(is.na(anc)) %>%
+  dplyr::mutate(
+    CHROM = stringr::str_split_fixed(snpname, "_(?!.*_)", n=2)[,1],
+    POS = stringr::str_split_fixed(snpname, "_(?!.*_)", n=2)[,2],
+    POS = as.numeric(POS)
+  ) %>%
+  # needs to be in bed format
+  dplyr::rename(chr = CHROM) %>%
+  dplyr::mutate(
+    start = POS,
+    end = POS,
+    gene_symbol = ".",
+    score = ".",
+    strand = ".",
+    geneid = snpname,
+    seqname = chr
+  ) %>%
+  dplyr::select(c("chr", "start", "end", "gene_symbol", "score", "geneid", "seqname"))
+
+mipbb_dr_panel_vcfR_ancpolar <- vcfRmanip::vcffilter_ChromPos(vcfRobject = mipbb_dr_panel_vcfR, chromposbed = nopolar)
+
+
+#..............
+# make drug-res gene objects
+#..............
 drugres_ret_full <- drugres %>%
   select(-c("strand", "chrom_fct", "seqname"))
-drugres_ret_full$vcfRobj <- purrr::map(drugreslist, vcfRmanip::vcfR2SubsetChromPos, vcfRobject = mipbb_dr_panel_vcfR)
+drugres_ret_full$vcfRobj <- purrr::map(drugreslist, vcfRmanip::vcfR2SubsetChromPos, vcfRobject = mipbb_dr_panel_vcfR_ancpolar)
 drugres_ret_full$nvar <- unlist(purrr::map(drugres_ret_full$vcfRobj, function(x){ return(nrow(x@gt)) }))
 
 drugres_ret_sub <- drugres_ret_full %>%
   filter(nvar > 10)
-
 
 
 #-------------------------------------------------------------------------------------------------------
@@ -74,8 +106,8 @@ rehhfile$haplohh <- purrr::map2(rehhfile$thap_files, rehhfile$pmap_files,
                                                     haplotype.in.columns=TRUE,
                                                     recode.allele = T,
                                                     min_perc_geno.hap=0,
-                                                    min_perc_geno.snp = 1, # if entire SNP is missing information, it is due to the fact that we weren't able to polarize it (otherwise would have been dropped upstream); need to drop those as that information is useless
-                                                    min_maf = 0)) # !!!! tweaking required
+                                                    min_perc_geno.snp = 0,
+                                                    min_maf = 0)) # assuming Bob's filters already valid
 
 #.................................
 # combine drug resistance information with the haplohh obj
@@ -90,7 +122,7 @@ drugres_ret_sub <- rehhfile %>%
 drugres_ret_sub$scanhh <- purrr::map(drugres_ret_sub$haplohh, rehh::scan_hh,
                                      limhaplo = 2,
                                      limehh = 0.05,
-                                     discard_integration_at_border = T)
+                                     discard_integration_at_border = TRUE)
 
 # looks like NAs are being produced from
 # https://github.com/cran/rehh/blob/master/src/hh_utils.c
@@ -99,6 +131,9 @@ drugres_ret_sub$scanhh <- purrr::map(drugres_ret_sub$haplohh, rehh::scan_hh,
 #   return (UNDEFND);                                                           // ... then do not compute the integral, and quit
 # Note, can turn this off by setting `discard_integration_at_border = F`
 # but this is a sensible parameter
+
+
+
 
 
 drugres_ret_sub$marker <- purrr::map(drugres_ret_sub$scanhh, function(x){
@@ -119,8 +154,8 @@ drugres_ret_sub$ehh <- purrr::map2(drugres_ret_sub$haplohh, drugres_ret_sub$mark
   mrk = .y,
   limhaplo = 2,
   limehh = 0.05,
-  plotehh = F)
-)
+  plotehh = F))
+
 
 #.................................
 # make plots for ehh continous
@@ -160,5 +195,5 @@ ehhplotdf$ehhplot <-  pmap(ehhplotdf[,c("ehhdf", "marker", "geneid")], plotehh)
 save(drugres_ret_full,
      drugres_ret_sub,
      ehhplotdf,
-     file = "results/01-drugres_obj_rehh.rda")
+     file = "data/derived/01-drugres_obj_rehh_countrylevel.rda")
 
