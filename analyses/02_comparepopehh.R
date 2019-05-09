@@ -8,6 +8,7 @@
 #.................................
 source("analyses/00_metadata.R")
 source("R/01-EHH_tools.R")
+source("R/04-subset_smpls.R")
 library(tidyverse)
 devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
@@ -51,6 +52,7 @@ mipbb_dr_panel_vcfR_ancpolar <- vcfRmanip::vcffilter_ChromPos(vcfRobject = mipbb
                                                               chromposbed = nopolar)
 
 
+
 #.....................
 # Set up Samples by Regions
 #.....................
@@ -84,12 +86,16 @@ subsetlocismpls <- function(smpls, seqname, start, end, geneid){
 drugregions$vcfRobj <- purrr::pmap(drugregions[,c("smpls", "seqname", "start", "end", "geneid")],
                                    subsetlocismpls)
 
+#.................................
+# Drop Haplotypes with too much missingness
+#.................................
+drugregions$vcfRobj_new <- lapply(drugregions$vcfRobj, remove_smpls_by_smpl_missingness, misscutoff = 0)
 
 #.................................
 # remove bad sites
 #.................................
-drugregions$nvar <- unlist(purrr::map(drugregions$vcfRobj, function(x){ return(nrow(x@gt)) }))
-drugregions$nsmpls <- unlist(purrr::map(drugregions$vcfRobj, function(x){ return(ncol(x@gt)-1) }))
+drugregions$nvar <- unlist(purrr::map(drugregions$vcfRobj_new, function(x){ return(nrow(x@gt)) }))
+drugregions$nsmpls <- unlist(purrr::map(drugregions$vcfRobj_new, function(x){ return(ncol(x@gt)-1) }))
 drugregions_sub <- drugregions %>%
   filter(nvar > 20) %>%
   filter(nsmpls > 5)
@@ -98,8 +104,8 @@ drugregions_sub <- drugregions %>%
 #.................................
 # make map and haplotype files
 #.................................
-drugregions_sub$pmap <- purrr::map(drugregions_sub$vcfRobj, getpmap.polarize)
-drugregions_sub$thap <- purrr::map(drugregions_sub$vcfRobj, vcfRmanip::vcfR2thap)
+drugregions_sub$pmap <- purrr::map(drugregions_sub$vcfRobj_new, getpmap.polarize)
+drugregions_sub$thap <- purrr::map(drugregions_sub$vcfRobj_new, vcfRmanip::vcfR2thap)
 
 outdir <- "~/Desktop/temp_ehhwork/ehhcrosspop/"
 if(!dir.exists(outdir)){
