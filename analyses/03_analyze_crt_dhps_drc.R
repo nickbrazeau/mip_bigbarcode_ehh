@@ -1,10 +1,11 @@
 #-------------------------------------------------------------------------------------------------------
-# After discussing with JJJ, JAB & SRM
+# After discussing with RV, JJJ, JAB & SRM
 # have decided to subset to DHPS and CRT and will considerd the
 # DRC as a split population using the K-means of 2 cluster
 #
 # We are going to subset to just look at the
-# crt loci 76T and the dhps 540 and 581 loci
+# crt loci 76T and the dhps 437 540 and 581 loci
+# in just the DRC
 #
 #-------------------------------------------------------------------------------------------------------
 #.................................
@@ -29,6 +30,7 @@ mipDRpanel <- readRDS("data/raw_snps_filtered/dr_monoclonal.rds")
 #.................................
 crtdhps_sub <- drugregions_sub %>%
   dplyr::filter(name %in% c("crt", "dhps")) %>%
+  dplyr::filter(region %in% c("DRC1.2", "DRC2.2")) %>%
   dplyr::select(-c("marker", "ehh"))
 
 
@@ -172,7 +174,9 @@ plotehh <- function( region, mutation, name, ehhdf){
     labs(x = "position (cM)", y = "EHH Statistic") +
     scale_color_manual("Allele", labels = c("Ancestral", "Derived"), values = c("#2166ac", "#b2182b")) +
     theme_bw() +
-    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 10))
+    theme(plot.title = element_text(family = "Arial", face = "bold", hjust = 0.5, vjust = 0.5, size = 12),
+          axis.title = element_text(family = "Arial", face = "bold", size = 10),
+          legend.title = element_text(family = "Arial", face = "bold", hjust = 0.5, vjust = 0.5, size = 10))
 }
 
 crossehhplotdf$ehhplot <-  pmap(crossehhplotdf[,c("region", "mutation", "name", "ehhdf")], plotehh)

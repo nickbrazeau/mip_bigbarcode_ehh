@@ -2,7 +2,8 @@
 
 #' ... for other argument passed to rehh::calc_ehhs
 
-unnormalized_xpehh_derivedallele_logratio <- function(haplohh.pop1, haplohh.pop2, marker, discard_integration_at_border = F, limhaplo = 2, limehh = 0.05, ...){
+unnormalized_xpehh_derivedallele_logratio <- function(haplohh.pop1, haplohh.pop2, marker, discard_integration_at_border = F, limhaplo = 2, limehh = 0.05,
+                                                      tol = 1e-3, ...){
 
   ehh_d.pop1 <- rehh::calc_ehh(haplohh.pop1, mrk = marker, plotehh = F,
                               discard_integration_at_border = discard_integration_at_border,
@@ -16,7 +17,7 @@ unnormalized_xpehh_derivedallele_logratio <- function(haplohh.pop1, haplohh.pop2
 
   base::message("The logratio of Pop2/Pop1 is considered using the IHH Derived Allele statistic")
 
-  ret <- log( ehh_d.pop2$ihh["Derived allele"] / ehh_d.pop1$ihh["Derived allele"] )
+  ret <- log( (ehh_d.pop2$ihh["Derived allele"]+tol) / (ehh_d.pop1$ihh["Derived allele"]+tol) )
 
   return(ret)
 }

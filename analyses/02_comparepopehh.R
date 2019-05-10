@@ -1,6 +1,10 @@
 
 #-------------------------------------------------------------------------------------------------------
 # Purpose of this script is to perform EHH controlling for population structure
+# as well as to subset to samples with no missingness. The rehh package stops
+# "considering" a haplotype as soon as it hits its first missing base pair. This
+# (logical) effect can affect the monotonicity of the EHH decay. Would have needed to impute
+# (which is complicated given MOI affecting our AF/LD calculations and limited monoclonal samples) or drop them
 #-------------------------------------------------------------------------------------------------------
 
 #.................................
@@ -14,7 +18,8 @@ devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
 library(rehh)
 
-mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
+mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/derived/vcfs/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
+mipbb_dr_panel_vcfR@gt[mipbb_dr_panel_vcfR@gt == "./.:.:."] <- NA # import issue. See "issue#1" in vcfdo https://github.com/IDEELResearch/vcfdo/issues/1
 
 #.................................
 # datawrangle
@@ -70,6 +75,8 @@ regionlong <- do.call("rbind", lapply(1:nrow(drugres), function(x){
 
 drugregions <- as_tibble(cbind.data.frame(regionlong, drugres))
 
+
+
 #.................................
 # subset and expand vcf
 #.................................
@@ -86,19 +93,31 @@ subsetlocismpls <- function(smpls, seqname, start, end, geneid){
 drugregions$vcfRobj <- purrr::pmap(drugregions[,c("smpls", "seqname", "start", "end", "geneid")],
                                    subsetlocismpls)
 
+# find the number of samples in each vcf
+# TZ had no monocolonals, so drop that
+drugregions$nsmpls <- unlist(purrr::map(drugregions$vcfRobj, function(x){ return(ncol(x@gt)-1) }))
+drugregions <- drugregions %>%
+  dplyr::filter(nsmpls > 0)
+
+
 #.................................
-# Drop Haplotypes with too much missingness
+# Drop Haplotypes with any missing site
+# and recalculate n smpls and nvar
 #.................................
-drugregions$vcfRobj_new <- lapply(drugregions$vcfRobj, remove_smpls_by_smpl_missingness, misscutoff = 0)
+drugregions$vcfRobj_new <- purrr::map(drugregions$vcfRobj, remove_smpls_by_smpl_missingness, misscutoff = 0)
+drugregions$nvar <- unlist(purrr::map(drugregions$vcfRobj_new, function(x){ return(nrow(x@gt)) }))
+drugregions$nsmpls <- unlist(purrr::map(drugregions$vcfRobj_new, function(x){ return(ncol(x@gt)-1) }))
+
+
 
 #.................................
 # remove bad sites
 #.................................
-drugregions$nvar <- unlist(purrr::map(drugregions$vcfRobj_new, function(x){ return(nrow(x@gt)) }))
-drugregions$nsmpls <- unlist(purrr::map(drugregions$vcfRobj_new, function(x){ return(ncol(x@gt)-1) }))
 drugregions_sub <- drugregions %>%
-  filter(nvar > 20) %>%
-  filter(nsmpls > 5)
+  filter(nvar > 20)
+
+
+
 
 
 #.................................

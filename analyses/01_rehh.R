@@ -3,6 +3,8 @@
 # Purpose of this script is to perform EHH and iHS based on the ancestral and derived allele
 # First we will examine loci as a whole without respect to population structure
 # Second we will examine loci relationships with respect to structure (compare pop script)
+# In this basic script, we keep all samples and all sites. Later we will filter samples that have missing data
+# and do a more targeted approach by focusing on putative drug sites that we found
 #-------------------------------------------------------------------------------------------------------
 
 #.................................
@@ -16,7 +18,11 @@ library(vcfRmanip)
 library(rehh)
 
 
-mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
+mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/derived/vcfs/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
+mipbb_dr_panel_vcfR@gt[mipbb_dr_panel_vcfR@gt == "./.:.:."] <- NA # import issue. See "issue#1" in vcfdo https://github.com/IDEELResearch/vcfdo/issues/1
+
+# A437G is "properly" coded with the ancestral allele being the alternative "C" base that confers drug sensitivity
+mipbb_dr_panel_vcfR@fix[mipbb_dr_panel_vcfR@fix[,"CHROM"] == "Pf3D7_08_v3" & mipbb_dr_panel_vcfR@fix[,"POS"] == "549685",]
 
 #.................................
 # datawrangle
