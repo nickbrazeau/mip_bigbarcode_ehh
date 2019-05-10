@@ -12,6 +12,7 @@
 data/
 results/
 old/
+sandbox/
 
 # RStudio files
 .Rproj.user/
