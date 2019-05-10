@@ -10,7 +10,8 @@
 *.rda
 *.rds
 data/
-figures/
+results/
+old/
 
 # RStudio files
 .Rproj.user/
