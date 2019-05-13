@@ -1,6 +1,7 @@
 #.................................
 # Dependencies
 #.................................
+source("R/00-recover_biallelics.R")
 devtools::install_github("andrewparkermorgan/rplasmodium")
 library(rplasmodium)
 devtools::install_github("mrc-ide/MIPanalyzer")
@@ -18,6 +19,12 @@ mipbigpanel <- readRDS("data/raw_snps_filtered/biallelic_distances.rds")
 # read in drug res panel
 #.................................
 mipDRpanel <- readRDS("data/raw_snps_filtered/dr_monoclonal.rds")
+#.................................
+# recover biallelic snps in the subsetted dr panel
+#.................................
+mipDRpanel <- recoverbiallelics(mipDRpanel)$mipanalyzer_multiallelic
+
+
 biallelic_sites <- !stringr::str_detect(mipDRpanel$loci$ALT, ",")  # this works because we only have SNPs for now
 # long way to subset to a biallelic from multiallelic vcf but checked in raw vcf on command line, this works fine for now
 mipDRpanel$loci <- mipDRpanel$loci[biallelic_sites, ]
@@ -132,8 +139,8 @@ mipbigpanel_sub$loci <- mipbigpanel_sub$loci[-c(mipBB_sub_repeats_loci), ]
 #.................................
 # Make the vcfs
 #.................................
-mipbivcfR <- MIPanalyzerbi2vcfR(input = mipbigpanel_sub, cutoff = 0.2)
-mipDRvcfR <- MIPanalyzerbi2vcfR(input = mipDRpanel, cutoff = 0.2)
+mipbivcfR <- MIPanalyzerbi2vcfR(input = mipbigpanel_sub, cutoff = 0.5) # given that these were identified as monoclonal, going to force to major haplotype
+mipDRvcfR <- MIPanalyzerbi2vcfR(input = mipDRpanel, cutoff = 0.5)
 
 #.................................
 # remove sites that are all ref in the BB-DR combined panel

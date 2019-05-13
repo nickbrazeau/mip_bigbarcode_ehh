@@ -15,9 +15,12 @@ unnormalized_xpehh_derivedallele_logratio <- function(haplohh.pop1, haplohh.pop2
                               limhaplo = limhaplo,
                               limehh = limehh, ...)
 
-  base::message("The logratio of Pop2/Pop1 is considered using the IHH Derived Allele statistic")
-
-  ret <- log( (ehh_d.pop2$ihh["Derived allele"]+tol) / (ehh_d.pop1$ihh["Derived allele"]+tol) )
+  base::message("The logratio of Pop1/Pop2 is considered using the IHH Derived Allele statistic")
+  if(ehh_d.pop1$ihh["Derived allele"] == 0 | ehh_d.pop2$ihh["Derived allele"] == 0){
+    return(NA)
+  } else{
+    ret <- log( (ehh_d.pop1$ihh["Derived allele"]) / (ehh_d.pop2$ihh["Derived allele"]) )
+  }
 
   return(ret)
 }

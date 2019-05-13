@@ -11,7 +11,6 @@
 source("R/01-EHH_tools.R")
 source("R/02-spiderplot.R")
 source("R/03-crude_iES_derived.R")
-source("analyses/00_metadata.R")
 library(tidyverse)
 devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
@@ -19,41 +18,73 @@ library(rehh)
 set.seed(42)
 
 
-load("data/derived/03-analyze_crt_dhps_drc.rda")
+load("data/derived/01-drugres_obj_rehh_subpopulationlevel.rda")
 
 #.................................
 # subset relevant tasks
 #.................................
-crtdhps_xpehh <- crtdhps_sub %>%
+putdrugres_xpehh <- drugregions_sub %>%
   dplyr::select(c("region", "name", "mut_name", "marker", "haplohh")) %>%
-  dplyr::filter(region %in% c("DRC1.2", "DRC2.2")) %>%
-  dplyr::filter(mut_name %in% c("K76T", "G437A", "K540E", "A581G")) %>%
+  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
   dplyr::full_join(., ., by = c("name", "mut_name", "marker")) %>% # make cross-compare
   dplyr::filter(region.x != region.y)
 
+# can subset to DRC1.2 as the pop1 since there are only 2 popls
+putdrugres_xpehh <- putdrugres_xpehh %>%
+  dplyr::filter(region.x == "DRC-East")
+
+
 # make map df for pmap
-crtdhps_xpehh_map <- crtdhps_xpehh %>%
+putdrugres_xpehh_map <- putdrugres_xpehh %>%
   dplyr::select("haplohh.x", "haplohh.y", "marker") %>%
   dplyr::mutate(discard_integration_at_border = F) %>%
   dplyr::rename(haplohh.pop1 = haplohh.x,
                 haplohh.pop2 = haplohh.y)
 
-crtdhps_xpehh$crudexpehh <- unlist( purrr::pmap(crtdhps_xpehh_map, unnormalized_xpehh_derivedallele_logratio) )
 
-# store results
-crtdhps_xpehh_dist <- crtdhps_xpehh %>%
-  dplyr::select(c("region.x", "region.y", "crudexpehh", "mut_name")) %>%
-  dplyr::mutate(crudexpehh = round(crudexpehh, 2)) %>%
-  group_by(mut_name) %>%
-  nest()
-# coerce to dist matrix for better viz
-crtdhps_xpehh_dist$dist <- map(crtdhps_xpehh_dist$data, pairwisedistdf_to_squaredist)
-# write out
-for(i in 1:nrow(crtdhps_xpehh_dist)){
-  readr::write_csv(x = as.data.frame( as.matrix( crtdhps_xpehh_dist$dist[[i]] ) ),
-                   path = paste0("results/final_tables/xpehh_loci_", crtdhps_xpehh_dist$mut_name[[i]], "_full_sampleset.csv"))
+putdrugres_xpehh$crudexpehh <- as.numeric( purrr::pmap(putdrugres_xpehh_map, unnormalized_xpehh_derivedallele_logratio) )
+putdrugres_xpehh$scaledxpehh <- unlist( base::scale(putdrugres_xpehh$crudexpehh, center = T, scale = T) )
 
-}
+putdrugres_xpehh$pprimexpehh_scale <- -log10(abs(dnorm(putdrugres_xpehh$scaledxpehh)))
+putdrugres_xpehh$statsig <- putdrugres_xpehh$pprimexpehh_scale < 0.05 |  putdrugres_xpehh$pprimexpehh_scale > 0.95 # (reciprocal because it is one sided p-value and depends on which was in the denominator E v. W or W. v E)
+
+
+
+putdrugres_xpehh %>%
+  dplyr::filter(!is.na(pprimexpehh_scale)) %>%
+  ggplot() +
+  geom_pointrange(aes(x = mut_name, y = crudexpehh, ymin = crudexpehh, ymax = crudexpehh,
+                      color = factor(statsig), group = factor(statsig)), size=1.5, alpha = 0.8) +
+  facet_grid(name ~ ., scales = "free_y") +
+  scale_color_manual("Stat. Sig.", values = c("#313695", "#a50026")) +
+  ggtitle("Crude XP-EHH for the Derived Allele \n Comparing the Log Ratio of DRC-East/DRC-West") +
+  xlab("Mutation Name") + ylab("XP-EHH Estimate") +
+  labs(caption = "DRC-East was classified as Pop1 while DRC-West was classified as Pop2") +
+  coord_flip() +
+  theme_bw() +
+  theme(
+    plot.title = element_text(family = "Arial", face = "bold", hjust = 0.5, vjust =0.5, size = 14),
+    axis.title = element_text(family = "Arial", face = "bold", hjust = 0.5, vjust =0.5, size = 11)
+  )
+
+
+saveRDS(object = putdrugres_xpehh, file = "data/derived/02-putdrugres_xpehh.rds")
+
+putdrugres_xpehh %>%
+  dplyr::select(-c("haplohh.x", "haplohh.y")) %>%
+  write_csv(x= ., path = "results/final_tables/putdrugres_xpehh_DRC_EvW.csv")
+
+# JUST TWO SITES, SO NO NEED for distance matrix anymore
+
+
+# # coerce to dist matrix for better viz
+# putdrugres_xpehh_dist$dist <- map(crtdhps_xpehh_dist$data, pairwisedistdf_to_squaredist)
+# # write out
+# for(i in 1:nrow(crtdhps_xpehh_dist)){
+#   readr::write_csv(x = as.data.frame( as.matrix( crtdhps_xpehh_dist$dist[[i]] ) ),
+#                    path = paste0("results/final_tables/xpehh_loci_", crtdhps_xpehh_dist$mut_name[[i]], "_full_sampleset.csv"))
+#
+# }
 
 
 # NO NEED TO DOWNSAMPLE, we decided to subset to East v. West DRC because of sample size issues

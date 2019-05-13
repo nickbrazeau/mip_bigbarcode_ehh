@@ -73,8 +73,8 @@ drugres <- drugres %>%
 drugres <- drugres %>%
   dplyr::mutate(chrom_fct = rplasmodium::factor_chrom(chr),
                 seqname = paste0("chr", as.character(chrom_fct)),
-                start = start - 1e5, # already made 1-based
-                end = end  + 1e5)
+                start = start - 2e5, # already made 1-based
+                end = end  + 2e5)
 # remember for the vcfR2SubsetChromPos function to work the chromosome name in the VCF must be in the `seqname` field. To protect against multiple chrom names floating around
 drugres$seqname <- drugres$chr # updated for our work
 

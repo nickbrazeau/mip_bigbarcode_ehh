@@ -182,7 +182,7 @@ do.call("grid.arrange", c(spdrplots, nrow=3))
 ```
 
 
-### dhps I356T
+### crt I356T
 ```{r, results="hide"}
 
 #.................................
