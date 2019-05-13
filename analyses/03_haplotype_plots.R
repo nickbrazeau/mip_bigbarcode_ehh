@@ -9,20 +9,19 @@ library(tidyverse)
 devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
 library(rehh)
-load("data/derived/02-drugres_obj_rehh_subpopulationlevel.rda")
-mipDRpanel <- readRDS("data/raw_snps_filtered/dr_monoclonal.rds")
+load("data/derived/01-drugres_obj_rehh_subpopulationlevel.rda")
+
 #-------------------------------------------------------------------------------------------------------
 # subset to data to just what we need to start. will make haplotype plots from all data now
 ##------------------------------------------------------------------------------------------------------
 haplotypes_sub <- drugregions_sub %>%
-  dplyr::select(-c("vcfRobj_new", "pmap", "thap", "haplohh", "scanhh", "nvar", "marker")) %>% # remove marker so I can pair it with snp name later
-  dplyr::filter(name %in% c("dhps", "crt"))
-
+  dplyr::select(-c("pmap", "thap", "haplohh", "scanhh", "nvar", "nsmpls"))
+haplotypes_sub$nsmpls <- unlist(purrr::map(haplotypes_sub$vcfRobj_new, function(x){ return(ncol(x@gt)-1) }))
 #-------------------------------------------------------------------------------------------------------
 # make map and haplotype files from all smpls
 #------------------------------------------------------------------------------------------------------
-haplotypes_sub$pmap <- purrr::map(haplotypes_sub$vcfRobj, getpmap.polarize)
-haplotypes_sub$thap <- purrr::map(haplotypes_sub$vcfRobj, vcfRmanip::vcfR2thap)
+haplotypes_sub$pmap <- purrr::map(haplotypes_sub$vcfRobj_new, getpmap.polarize.nucbp)
+haplotypes_sub$thap <- purrr::map(haplotypes_sub$vcfRobj_new, vcfRmanip::vcfR2thap)
 
 outdir <- "~/Desktop/temp_ehhwork/haplotypeplots/"
 if(!dir.exists(outdir)){
@@ -69,92 +68,8 @@ haplotypes_sub <- rehhfile %>%
 
 
 #-------------------------------------------------------------------------------------------------------
-# Find putative drug resistance markers that we will make haplotype plots for
-#------------------------------------------------------------------------------------------------------
-# This is the supplementary Table that Bob V put together
-# Details the prevalence of putative drug resistance loci
-
-chromliftover <- data.frame(CHROM = rplasmodium::chromnames()) %>%
-  dplyr::filter(! CHROM %in% c("Pf_M76611", "Pf3D7_API_v3")) %>%
-  dplyr::mutate(
-    chrom = paste0("chr", 1:14))
-
-
-crtdhps_drugsites  <-read_csv("data/Supplemental Table 2_ Drug resistance MIP panel prevalences - Sheet1.csv") %>%
-  dplyr::filter(gene %in% c("crt", "dhps")) %>%
-  dplyr::mutate(
-    overall_perc = stringr::str_split_fixed(overall, "\\(", n=2)[,2],
-    prev = stringr::str_extract(overall_perc,  "\\d+\\.*\\d*") #https://stackoverflow.com/questions/19252663/extracting-decimal-numbers-from-a-string
-  ) %>%
-  dplyr::filter(prev > 10) %>% # subset to putative sites with reasonable support
-  dplyr::left_join(x=., y=chromliftover, by = "chrom") %>%
-  dplyr::mutate(snpname = paste0(CHROM, "_", pos))
-
-# find markers for crt
-crtsites <- crtdhps_drugsites %>%
-  dplyr::filter(gene == "crt") %>%
-  dplyr::mutate(snppresent = snpname %in% haplotypes_sub$haplohh[[ which(haplotypes_sub$name == "crt")[1] ]]@snp.name)
-
-markpos <- sapply(crtsites$snpname, function(x){
-  if(x %in% haplotypes_sub$haplohh[[ which(haplotypes_sub$name == "crt")[1] ]]@snp.name ){
-    marker <- which(haplotypes_sub$haplohh[[ which(haplotypes_sub$name == "crt")[1] ]]@snp.name == x)
-    cM_Pos <- haplotypes_sub$haplohh[[ which(haplotypes_sub$name == "crt")[1] ]]@position[marker]
-    return(cbind.data.frame(marker = marker, cM_Pos = cM_Pos))
-  } else {
-    return(NA)
-  }
-}) %>% do.call("rbind.data.frame", .)
-
-crtsites$marker <- markpos$marker
-crtsites$cM_Pos <- markpos$cM_Pos
-
-
-# confirm missing data for crt from multiallelic sites
-mipDRpanel$loci %>%
-  dplyr::filter(CHROM %in% crtsites$chrom[is.na(crtsites$marker)]) %>%
-  dplyr::filter(POS %in% crtsites$pos[is.na(crtsites$marker)])
-
-# find markers for dhps
-dhpssites <- crtdhps_drugsites %>%
-  dplyr::filter(gene == "dhps") %>%
-  dplyr::mutate(snppresent = snpname %in% haplotypes_sub$haplohh[[ which(haplotypes_sub$name == "dhps")[1] ]]@snp.name)
-
-markpos <- sapply(dhpssites$snpname, function(x){
-  if(x %in% haplotypes_sub$haplohh[[ which(haplotypes_sub$name == "dhps")[1] ]]@snp.name ){
-    marker <- which(haplotypes_sub$haplohh[[ which(haplotypes_sub$name == "dhps")[1] ]]@snp.name == x)
-    cM_Pos <- haplotypes_sub$haplohh[[ which(haplotypes_sub$name == "dhps")[1] ]]@position[marker]
-    return(cbind.data.frame(marker = marker, cM_Pos = cM_Pos))
-  } else {
-    return(NA)
-  }
-}) %>% do.call("rbind.data.frame", .)
-
-dhpssites$marker <- markpos$marker
-dhpssites$cM_Pos <- markpos$cM_Pos
-
-# confirm missing data for dhps from multiallelic sites
-mipDRpanel$loci %>%
-  dplyr::filter(CHROM %in% dhpssites$chrom[is.na(dhpssites$marker)]) %>%
-  dplyr::filter(POS %in% dhpssites$pos[is.na(dhpssites$marker)])
-
-mrk <- rbind(crtsites, dhpssites) %>%
-  dplyr::filter(snppresent) %>%
-  dplyr::select(c("gene", "mut_name", "marker", "cM_Pos")) %>%
-  dplyr::rename(name = gene)
-
-#......................
-# Add makers to df
-#......................
-haplotypes_sub <- dplyr::left_join(x=haplotypes_sub, y=mrk, by = "name")
-
-#-------------------------------------------------------------------------------------------------------
 # Make Haplotype Plots
 #------------------------------------------------------------------------------------------------------
-# subset to putative loci
-
-haplotypes_sub <- haplotypes_sub %>%
-  dplyr::filter(mut_name %in% c("K76T", "G437A", "K540E", "A581G"))
-
 
 
 haplotypes_sub$hapdf <- pmap(haplotypes_sub[, c("thap", "pmap", "haplohh", "marker")],
@@ -213,9 +128,8 @@ plothap <- function(hapdf, region, mut_name){
     theme_bw() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 10),
           axis.title = element_text(face = "bold", hjust = 0.5, size = 8.5),
-          # axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5, size = 3),
-          axis.text.x = element_blank(),
-          axis.text.y = element_blank()
+          axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5, size = 3),
+          axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5, size = 3)
     )
 }
 
@@ -228,6 +142,6 @@ haplotypes_sub$happlot <-  pmap(haplotypes_sub[,c("hapdf", "region", "mut_name")
 # save it out
 #..........................
 
-saveRDS(object = haplotypes_sub, file = "data/derived/05-haplotype_plots_allsmpls.rds")
+saveRDS(object = haplotypes_sub, file = "data/derived/03-haplotype_plots_allsmpls.rds")
 
 

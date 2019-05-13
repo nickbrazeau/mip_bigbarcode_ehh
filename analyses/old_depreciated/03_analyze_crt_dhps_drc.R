@@ -61,7 +61,7 @@ crtsites <- crtdhps_drugsites %>%
   dplyr::filter(gene == "crt") %>%
   dplyr::mutate(snppresent = snpname %in% crtdhps_sub$haplohh[[ which(crtdhps_sub$name == "crt")[1] ]]@snp.name)
 
-markpos <- sapply(crtsites$snpname, function(x){
+markpos <- lapply(crtsites$snpname, function(x){
   if(x %in% crtdhps_sub$haplohh[[ which(crtdhps_sub$name == "crt")[1] ]]@snp.name ){
     marker <- which(crtdhps_sub$haplohh[[ which(crtdhps_sub$name == "crt")[1] ]]@snp.name == x)
     cM_Pos <- crtdhps_sub$haplohh[[ which(crtdhps_sub$name == "crt")[1] ]]@position[marker]
@@ -85,7 +85,7 @@ dhpssites <- crtdhps_drugsites %>%
   dplyr::filter(gene == "dhps") %>%
   dplyr::mutate(snppresent = snpname %in% crtdhps_sub$haplohh[[ which(crtdhps_sub$name == "dhps")[1] ]]@snp.name)
 
-markpos <- sapply(dhpssites$snpname, function(x){
+markpos <- lapply(dhpssites$snpname, function(x){
   if(x %in% crtdhps_sub$haplohh[[ which(crtdhps_sub$name == "dhps")[1] ]]@snp.name ){
     marker <- which(crtdhps_sub$haplohh[[ which(crtdhps_sub$name == "dhps")[1] ]]@snp.name == x)
     cM_Pos <- crtdhps_sub$haplohh[[ which(crtdhps_sub$name == "dhps")[1] ]]@position[marker]
@@ -93,7 +93,7 @@ markpos <- sapply(dhpssites$snpname, function(x){
   } else {
     return(NA)
   }
-}) %>% do.call("rbind.data.frame", .)
+}) %>% dplyr::bind_rows()
 
 dhpssites$marker <- markpos$marker
 dhpssites$cM_Pos <- markpos$cM_Pos

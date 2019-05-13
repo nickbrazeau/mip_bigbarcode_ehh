@@ -7,9 +7,7 @@
 # but not the main analysis
 #.................................
 source("analyses/00_data_input.R")
-source("analyses/01_rehh.R")
-source("analyses/02_comparepopehh.R")
-source("analyses/03_analyze_crt_dhps_drc.R")
-source("analyses/04_XPEHH_stats_crt_dhps.R")
-source("analyses/05_haplotype_plots.R")
-source("analyses/06_final_figures.R")
+source("analyses/01_get_putative_drugres_ehh.R")
+source("analyses/02_XPEHH_stats_crt_dhps.R")
+source("analyses/03_haplotype_plots.R")
+source("analyses/04_final_figures.R")

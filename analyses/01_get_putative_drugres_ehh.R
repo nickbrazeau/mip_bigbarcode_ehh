@@ -18,12 +18,12 @@ devtools::install_github("IDEELResearch/vcfRmanip")
 library(vcfRmanip)
 library(rehh)
 
+mipDRpanel <- readRDS("data/raw_snps_filtered/dr_monoclonal.rds") # just for checks later
 mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/derived/vcfs/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
 mipbb_dr_panel_vcfR@gt[mipbb_dr_panel_vcfR@gt == "./.:.:."] <- NA # import issue. See "issue#1" in vcfdo https://github.com/IDEELResearch/vcfdo/issues/1
-
-#.................................
+#-------------------------------------------------------------------------------------------------------------------------------
 # datawrangle
-#.................................
+#-------------------------------------------------------------------------------------------------------------------------------
 #.....................
 # set up drug res sites
 #.....................
@@ -68,6 +68,12 @@ regions <- mc %>%
   nest()
 regions$smpls <- purrr::map(regions$data, "id")
 
+regions <- regions %>%
+  dplyr::mutate(region = ifelse(region == "DRC1.2", "DRC-East",
+                                ifelse(region == "DRC2.2", "DRC-West", as.character( region) )),
+                region = factor(region))
+
+
 regionlong <- do.call("rbind", lapply(1:nrow(drugres), function(x){
   return(regions)
 })) %>%
@@ -104,20 +110,11 @@ drugregions <- drugregions %>%
 # Drop Haplotypes with any missing site
 # and recalculate n smpls and nvar
 #.................................
-drugregions$vcfRobj_new <- purrr::map(drugregions$vcfRobj, remove_smpls_by_smpl_missingness, misscutoff = 0)
-drugregions$nvar <- unlist(purrr::map(drugregions$vcfRobj_new, function(x){ return(nrow(x@gt)) }))
-drugregions$nsmpls <- unlist(purrr::map(drugregions$vcfRobj_new, function(x){ return(ncol(x@gt)-1) }))
-
-
-
-#.................................
-# remove bad sites
-#.................................
-drugregions_sub <- drugregions %>%
-  filter(nvar > 20)
-
-
-
+drugregions_sub <- drugregions
+drugregions_sub$vcfRobj_new <- purrr::map(drugregions$vcfRobj, remove_smpls_by_smpl_missingness, misscutoff = 0)
+# recalculate nvar and nsmpl with new not missing vcfR
+drugregions_sub$nvar <- unlist(purrr::map(drugregions_sub$vcfRobj_new, function(x){ return(nrow(x@gt)) }))
+drugregions_sub$nsmpls <- unlist(purrr::map(drugregions_sub$vcfRobj_new, function(x){ return(ncol(x@gt)-1) }))
 
 
 #.................................
@@ -193,24 +190,77 @@ drugregions_sub$scanhh <- purrr::map(drugregions_sub$haplohh, rehh::scan_hh,
 
 
 
-# Find the marker with the largest integrated EHHS statistic by Sabeti (unnormalized)
-drugregions_sub$marker <- purrr::map(drugregions_sub$scanhh, function(x){
-  maxmarker <- which(x$iES_Sabeti_et_al_2007 == max(x$iES_Sabeti_et_al_2007, na.rm = T))
-  maxmarker <- ifelse(purrr::is_empty(maxmarker), NA, maxmarker)
-  return(maxmarker)
-})
 
 
-# Throw away loci that don't have a clear marker
+#---------------------------------------------------------------------------------------------------------------------------------
+# find putiative markers markers
+#---------------------------------------------------------------------------------------------------------------------------------
+# This is the supplementary Table that Bob V put together
+# Details the prevalence of putative drug resistance loci
+
+chromliftover <- data.frame(CHROM = rplasmodium::chromnames()) %>%
+  dplyr::filter(! CHROM %in% c("Pf_M76611", "Pf3D7_API_v3")) %>%
+  dplyr::mutate(
+    chrom = paste0("chr", 1:14))
+
+
+putative_drugsites  <- read_csv("data/Supplemental Table 2_ Drug resistance MIP panel prevalences - Sheet1.csv") %>%
+  dplyr::mutate(
+    DRC_perc = stringr::str_split_fixed(DRC, "\\(", n=2)[,2],
+    prev = as.numeric( stringr::str_extract(DRC_perc,  "\\d+\\.*\\d*") ) #https://stackoverflow.com/questions/19252663/extracting-decimal-numbers-from-a-string
+  ) %>%
+  dplyr::filter(prev > 5) %>% # subset to putative sites with reasonable support in the DRC
+  dplyr::left_join(x=., y=chromliftover, by = "chrom") %>%
+  dplyr::mutate(snpname = paste0(CHROM, "_", pos)) %>%
+  dplyr::select(c("gene", "mut_name", "snpname")) %>%
+  dplyr::mutate(gene = ifelse(gene == "dhfr-ts", "dhfr", gene)) %>%
+  dplyr::rename(name = gene)
+
+
+
+drugregions_sub <- drugregions_sub %>%
+  dplyr::left_join(., putative_drugsites, by = "name") %>%
+  dplyr::filter(!is.na(mut_name))
+
+
+findmarker <- function(haplohh, snpname){
+  marker <- which(haplohh@snp.name == snpname)
+  if(purrr::is_empty(marker)){
+    return(NA)
+  } else{
+    return(marker)
+  }
+}
+
+findcMPosfromMarker <- function(haplohh, marker){
+  cMPos <- haplohh@position[[marker]]
+  return(cMPos)
+}
+
+#......................
+# Get Markers
+#......................
+drugregions_sub$marker <- unlist( purrr::pmap(drugregions_sub[,c("haplohh", "snpname")], findmarker) )
+# sanity check
+check <- drugregions_sub %>%
+  dplyr::filter(is.na(marker))
+# multiallelic
+mipDRpanel$loci[mipDRpanel$loci$CHROM %in% paste0("chr", check$chrom_fct) & mipDRpanel$loci$POS == 404407, ] # manual check here since pos is in cM now
+
+#......................
+# Subset marker (missing ones are non-biallelics)
+#......................
 drugregions_sub <- drugregions_sub %>%
   dplyr::filter(!is.na(marker))
+#......................
+# Get cMPos from marker (for spiderplots)
+#......................
+drugregions_sub$cMPos <- purrr::pmap(drugregions_sub[,c("haplohh", "marker")], findcMPosfromMarker)
 
 
-
-
-#.................................
-# call ehh based on ihs value
-#.................................
+#---------------------------------------------------------------------------------------------------------------------------------
+# call ehh based on putative markers
+#---------------------------------------------------------------------------------------------------------------------------------
 drugregions_sub$ehh <- map2(drugregions_sub$haplohh, drugregions_sub$marker, ~rehh::calc_ehh(
                             haplohh = .x,
                             mrk = .y,
@@ -225,7 +275,8 @@ drugregions_sub$ehh <- map2(drugregions_sub$haplohh, drugregions_sub$marker, ~re
 # make plots for ehh continous by region
 #.................................
 crossehhplotdf <- tibble(geneid = drugregions_sub$geneid,
-                    marker = unlist( drugregions_sub$marker ),
+                    marker = drugregions_sub$marker,
+                    mutation = drugregions_sub$mut_name,
                     region = drugregions_sub$region,
                     name = drugregions_sub$name )
 
@@ -246,51 +297,112 @@ crossehhplotdf$ehhdf <- map(crossehhplotdf$ehhdf, function(x){
 #.................................
 # make plots for ehh continous
 #.................................
-plotehh <- function(ehhdf, region, marker, geneid){
-  plotObj <- ggplot() +
-    geom_line(data=ehhdf, aes(x=pos, y=ehh, colour = factor(allele), group = factor(allele))) +
+plotehh <- function( region, mutation, name, ehhdf){
+  plotObj <- ehhdf %>%
+    dplyr::mutate(allele = factor(allele),
+                  allele = forcats::fct_drop(allele))
+
+  chck <- plotObj %>%
+    dplyr::group_by(allele) %>%
+    dplyr::summarise( checknotflat = all(ehh == 0)) %>%
+    dplyr::filter(checknotflat) %>%
+    dplyr::select(allele) %>%
+    unlist(.)
+
+  if(!purrr::is_empty(chck)){
+    plotObj <- plotObj %>%
+      dplyr::filter(! allele %in% chck)
+  }
+
+  plotObj %>%
+    ggplot() +
+    geom_line(aes(x=pos, y=ehh, colour = allele, group = allele), alpha = 0.8) +
     scale_color_manual("Allele Status", values = c("#4575b4", "#d73027")) +
-    ggtitle(paste0("This is marker: ", marker, " on gene ", geneid, " for region ", region)) +
+    ggtitle(paste0("EHH Decay Plot for ", mutation, " in ", region)) +
+    labs(x = "position (cM)", y = "EHH Statistic") +
+    scale_color_manual("Allele", labels = c("Ancestral", "Derived"), values = c("#2166ac", "#b2182b")) +
     theme_bw() +
-    theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 10))
+    theme(plot.title = element_text(family = "Arial", face = "bold", hjust = 0.5, vjust = 0.5, size = 12),
+          axis.title = element_text(family = "Arial", face = "bold", size = 10),
+          legend.title = element_text(family = "Arial", face = "bold", hjust = 0.5, vjust = 0.5, size = 10))
 }
 
-crossehhplotdf$ehhplot <-  pmap(crossehhplotdf[,c("region", "marker", "geneid", "ehhdf")], plotehh)
+crossehhplotdf$ehhplot <-  pmap(crossehhplotdf[,c("region", "mutation", "name", "ehhdf")], plotehh)
+
 
 #.................................
 # make haplotype plots
 #.................................
-crossehhplotdf$hapdf <- map(drugregions_sub$thap, function(x){
-  x <- t(x)
-  x <- as.data.frame(cbind(paste0("smpl", seq(1:nrow(x))), x))
-  colnames(x) <- c("smpl", paste0("loci", seq(1:(ncol(x)-1))))
-  ret <- gather(x, key = "loci", value = "allele", 2:ncol(x))
-  ret <- ret %>%
-    dplyr::mutate(loci = factor(loci,
-                                levels =  paste0("loci", seq(1:(ncol(x)-1))),
-                                ordered = T))
+crossehhplotdf$hapdf <- pmap(drugregions_sub[, c("thap", "pmap", "haplohh", "marker")],
+                             function(thap, pmap, haplohh, marker){
+  # have set this up so that we can facet by the original snp we identified
+  # want to be able to look at haplotypes based on ancestral versus derived site
+
+  thap <- t(thap)
+  thap <- as.data.frame(cbind(paste0("smpl", seq(1:nrow(thap))), thap))
+  colnames(thap) <- c("smpl", pmap$snpname)
+
+  focalsnpname <-haplohh@snp.name[marker]
+
+  allelepol <- thap %>%
+    dplyr::select(c("smpl", focalsnpname)) %>%
+    dplyr::mutate(snpname = focalsnpname,
+                  focalsnpused = focalsnpname) %>%
+    dplyr::rename(allele = focalsnpname) %>%
+    dplyr::left_join(x=., y=pmap, by = "snpname") %>%
+    dplyr::mutate(
+      allelepol = ifelse(allele == anc, "A", ifelse(allele == der, "D", NA))
+    ) %>%
+    dplyr::select(c("smpl", "allelepol", "focalsnpused"))
+
+  ret <- thap %>%
+    dplyr::left_join(x=., y=allelepol, by = "smpl") %>%
+    tidyr::gather(., key = "snpname", value = "allele", 2:(ncol(.)-2)) %>%
+    dplyr::rename(loci = snpname)
 
   return(ret)
 })
 
 
+plothap <- function(hapdf, region, mutation){
+  asterickmarks <- hapdf %>%
+    dplyr::select(c("smpl", "allelepol", "focalsnpused")) %>%
+    dplyr::filter(!is.na(allelepol)) %>%  # these sites are immediately dropped by rehh, so exclude
+    dplyr::group_by(allelepol) %>%
+    dplyr::summarise(
+      height = mean(as.numeric(factor(smpl))),
+      loci = unique(focalsnpused)
+    ) %>%
+    dplyr::mutate(ast = "*",
+                  height = ifelse(height == 1, 0.5, height))
 
-plothap <- function(hapdf, region, name){
-  plotObj <- ggplot() +
-    geom_tile(data=hapdf, aes(x=loci, y=smpl, fill = factor(allele))) +
-    scale_fill_manual("Allele", values = c("#d73027", "#fee090", "#66bd63", "#4575b4")) +
-    ggtitle(paste0("Gene ", name, " for region ", region)) +
+  plotObj <- hapdf %>%
+    dplyr::mutate(allele = forcats::fct_explicit_na(allele)) %>%
+    dplyr::filter(!is.na(allelepol)) %>%  # these sites are immediately dropped by rehh, so exclude
+    ggplot() +
+    geom_tile(aes(x=loci, y=smpl, fill = allele)) +
+    geom_text(data = asterickmarks, aes(x=loci, y=height, label = ast), size = 8, color = "#ff7f00") +
+    facet_grid(allelepol ~ ., scale = "free_y", space = "free_y") +
+    scale_fill_manual("Allele", values = c("#d73027", "#fee090", "#66bd63", "#4575b4", "#f0f0f0")) +
+    ggtitle(paste0("Haplotype Plot for ", mutation, " in ", region)) +
+    ylab("Samples") + xlab("Loci") +
     theme_bw() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 10),
-          axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5),
-          axis.text.y = element_blank()
+          axis.title = element_text(face = "bold", hjust = 0.5, size = 8.5),
+          axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5, size = 3),
+          axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5, size = 3)
     )
 }
-crossehhplotdf$happlot <-  pmap(crossehhplotdf[,c("region", "name", "hapdf")], plothap)
+crossehhplotdf$happlot <-  pmap(crossehhplotdf[,c("hapdf", "region", "mutation")], plothap)
 
 
 #.................................
 # write out
 #.................................
-save(drugregions_sub, crossehhplotdf, file = "data/derived/02-drugres_obj_rehh_subpopulationlevel.rda")
+save(drugregions_sub, crossehhplotdf, file = "data/derived/01-drugres_obj_rehh_subpopulationlevel.rda")
+
+
+
+
+
 
