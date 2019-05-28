@@ -51,7 +51,7 @@ if(
   stop("Incompatibility between big panel vcf and dr panel vcf")
 }
 
-# TODO DUPLICATED SAMPLES need to fix
+# TODO DUPLICATED SAMPLES need to fix (doesn't affect this project bc we are not looking at Uganda in this analysis)
 mipDRpanel$samples$ID[ mipDRpanel$samples$ID %in% mipbigpanel$samples$ID ]
 mipbigpanel$samples$ID[ mipbigpanel$samples$ID %in% mipDRpanel$samples$ID ]
 

@@ -324,6 +324,7 @@ plotehh <- function( region, mutation, name, ehhdf){
     theme_bw() +
     theme(plot.title = element_text(family = "Arial", face = "bold", hjust = 0.5, vjust = 0.5, size = 12),
           axis.title = element_text(family = "Arial", face = "bold", size = 10),
+          axis.text.x =  element_text(family = "Arial", face = "bold", size = 8),
           legend.title = element_text(family = "Arial", face = "bold", hjust = 0.5, vjust = 0.5, size = 10))
 }
 

@@ -87,7 +87,7 @@ bifur_crt_K76T_drc1.2_spiderplot <- spiderplot(hh = bifur_crt_drc1.2$haplohh[[1]
            palette = "RdBu",
            reverse = FALSE,
            relabel = NULL) +
-  xlab("Position (kbp)") + ggtitle("K76T Haplotype Bifurcation in DRC-East") +
+  xlab("Position (kbp)") + ggtitle(" ") +
   scale_x_genome(scale = 1000) +
   theme(
        strip.text = element_text(family = "Arial", face = "bold", size = 10),
@@ -120,7 +120,7 @@ bifur_crt_K76T_drc2.2_spiderplot <- spiderplot(hh = bifur_crt_drc2.2$haplohh[[1]
            palette = "RdBu",
            reverse = FALSE,
            relabel = NULL) +
-  xlab("Position (kbp)") + ggtitle("K76T Haplotype Bifurcation in DRC-West") +
+  xlab("Position (kbp)") + ggtitle(" ") +
   scale_x_genome(scale = 1000) +
   scale_colour_manual(values = cols) +
   theme(
@@ -157,7 +157,7 @@ bifur_dhps_drc1.2_spiderplot <- spiderplot(hh = bifur_dhps_drc1.2$haplohh[[1]],
                                            palette = "RdBu",
                                            reverse = FALSE,
                                            relabel = NULL) +
-  xlab("Position (kbp)") + ggtitle("K540E Haplotype Bifurcation in DRC-East") +
+  xlab("Position (kbp)") +  ggtitle("K540E Haplotype Bifurcation in DRC-East") +
   scale_x_genome(scale = 1000) +
   scale_colour_manual(values = cols) +
   theme(
@@ -214,19 +214,19 @@ bifur_dhps_drc2.2_spiderplot <- spiderplot(hh = bifur_dhps_drc2.2$haplohh[[1]],
 drc1.2_K76T_ehhdecay <- crossehhplotdf %>%
   dplyr::filter(mutation == "K76T" & region == "DRC-East") %>%
   .$ehhplot
-drc1.2_K76T_ehhdecay <- drc1.2_K76T_ehhdecay[[1]] + ggtitle("EHH Decay Plot for K76T in DRC-East")
+drc1.2_K76T_ehhdecay <- drc1.2_K76T_ehhdecay[[1]] + ggtitle("K76T in DRC-East")
 
 
 drc2.2_K76T_ehhdecay <- crossehhplotdf %>%
   dplyr::filter(mutation == "K76T" & region == "DRC-West") %>%
   .$ehhplot
-drc2.2_K76T_ehhdecay <- drc2.2_K76T_ehhdecay[[1]] + ggtitle("EHH Decay Plot for K76T in DRC-West")
+drc2.2_K76T_ehhdecay <- drc2.2_K76T_ehhdecay[[1]] + ggtitle("K76T in DRC-West")
 
 
-jpeg(file = "results/final_figures/K76T_DRC_EvW_EHH_Bifur.jpg", width = 11, height = 8, units = "in", res = 800)
+jpeg(file = "results/final_figures/figure7_K76T_DRC_EvW_EHH_Bifur.jpg", width = 11, height = 8, units = "in", res = 800)
 cowplot::plot_grid(drc1.2_K76T_ehhdecay, drc2.2_K76T_ehhdecay,
                    bifur_crt_K76T_drc1.2_spiderplot, bifur_crt_K76T_drc2.2_spiderplot,
-                   labels = c("A", "B", "C", "D"), ncol = 2)
+                   labels = paste0(letters[1:4], ")"), ncol = 2)
 graphics.off()
 
 #--------------------------------------------------------------------------------------
@@ -245,7 +245,7 @@ drc2.2_K540E_ehhdecay <- drc2.2_K540E_ehhdecay[[1]] + ggtitle("EHH Decay Plot fo
 jpeg(file = "results/final_figures/K540E_DRC_EvW_EHH_Bifur.jpg", width = 11, height = 8, units = "in", res = 800)
 cowplot::plot_grid(drc1.2_K540E_ehhdecay, drc2.2_K540E_ehhdecay,
                    bifur_dhps_drc1.2_spiderplot, bifur_dhps_drc2.2_spiderplot,
-                   labels = c("A", "B", "C", "D"), ncol = 2)
+                   labels = paste0(letters[1:4], ")"), ncol = 2)
 graphics.off()
 
 
@@ -258,31 +258,31 @@ haplotypes_sub <- readRDS("~/Documents/GitHub/mip_bigbarcode_ehh/data/derived/03
 #...................................................
 # crt
 #...................................................
-#.....................
-# K76T
-#.....................
-plts_ehh_k76T <- crossehhplotdf %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "N75E") %>% #74,75,76 all same basically, can drop to 1
-  .$ehhplot
-
-plts_hap_k76T <- haplotypes_sub %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mut_name == "K76T") %>%
-  .$happlot
-
-jpeg(filename = "results/final_figures/haplotypeplots/K76T_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
-cowplot::plot_grid(plts_ehh_k76T[[1]],     plts_ehh_k76T[[2]],
-                   plts_hap_k76T[[1]],     plts_hap_k76T[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
-graphics.off()
+# #.....................
+# # K76T
+# #.....................
+# plts_ehh_k76T <- crossehhplotdf %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mutation == "K76T") %>% #74,75,76 all same basically, can drop to 1
+#   .$ehhplot
+#
+# plts_hap_k76T <- haplotypes_sub %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mut_name == "K76T") %>%
+#   .$happlot
+#
+# jpeg(filename = "results/final_figures/haplotypeplots/K76T_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+# cowplot::plot_grid(plts_ehh_k76T[[1]],     plts_ehh_k76T[[2]],
+#                    plts_hap_k76T[[1]],     plts_hap_k76T[[2]],
+#                    labels = letters[1:4], nrow = 2)
+# graphics.off()
 
 #.....................
 # I356T
 #.....................
 plts_ehh_I356T <- crossehhplotdf %>%
   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "I356T") %>% #74,75,76 all same basically, can drop to 1
+  dplyr::filter(mutation == "I356T") %>%
   .$ehhplot
 
 plts_hap_I356T <- haplotypes_sub %>%
@@ -290,10 +290,10 @@ plts_hap_I356T <- haplotypes_sub %>%
   dplyr::filter(mut_name == "I356T") %>%
   .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/I356T_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+jpeg(filename = "results/final_figures/haplotypeplots/sup_fig8_I356T_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
 cowplot::plot_grid(plts_ehh_I356T[[1]],     plts_ehh_I356T[[2]],
                    plts_hap_I356T[[1]],     plts_hap_I356T[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
+                   labels = paste0(letters[1:4], ")"), nrow = 2)
 graphics.off()
 
 #...................................................
@@ -304,7 +304,7 @@ graphics.off()
 #.....................
 plts_ehh_G437A <- crossehhplotdf %>%
   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "G437A") %>% #74,75,76 all same basically, can drop to 1
+  dplyr::filter(mutation == "G437A") %>%
   .$ehhplot
 
 plts_hap_G437A <- haplotypes_sub %>%
@@ -312,10 +312,10 @@ plts_hap_G437A <- haplotypes_sub %>%
   dplyr::filter(mut_name == "G437A") %>%
   .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/G437A_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+jpeg(filename = "results/final_figures/haplotypeplots/sup_fig11_G437A_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
 cowplot::plot_grid(plts_ehh_G437A[[1]],     plts_ehh_G437A[[2]],
                    plts_hap_G437A[[1]],     plts_hap_G437A[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
+                   labels = paste0(letters[1:4], ")"), nrow = 2)
 graphics.off()
 
 
@@ -324,7 +324,7 @@ graphics.off()
 #.....................
 plts_ehh_K540E <- crossehhplotdf %>%
   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "K540E") %>% #74,75,76 all same basically, can drop to 1
+  dplyr::filter(mutation == "K540E") %>%
   .$ehhplot
 
 plts_hap_K540E <- haplotypes_sub %>%
@@ -332,10 +332,10 @@ plts_hap_K540E <- haplotypes_sub %>%
   dplyr::filter(mut_name == "K540E") %>%
   .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/K540E_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+jpeg(filename = "results/final_figures/haplotypeplots/sup_fig10_K540E_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
 cowplot::plot_grid(plts_ehh_K540E[[1]],     plts_ehh_K540E[[2]],
                    plts_hap_K540E[[1]],     plts_hap_K540E[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
+                   labels = paste0(letters[1:4], ")"), nrow = 2)
 graphics.off()
 
 
@@ -345,7 +345,7 @@ graphics.off()
 #.....................
 plts_ehh_A581G <- crossehhplotdf %>%
   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "A581G") %>% #74,75,76 all same basically, can drop to 1
+  dplyr::filter(mutation == "A581G") %>%
   .$ehhplot
 
 plts_hap_A581G <- haplotypes_sub %>%
@@ -353,56 +353,56 @@ plts_hap_A581G <- haplotypes_sub %>%
   dplyr::filter(mut_name == "A581G") %>%
   .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/A581G_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+jpeg(filename = "results/final_figures/haplotypeplots/sup_fig9_A581G_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
 cowplot::plot_grid(plts_ehh_A581G[[1]],     plts_ehh_A581G[[2]],
                    plts_hap_A581G[[1]],     plts_hap_A581G[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
+                   labels = paste0(letters[1:4], ")"), nrow = 2)
 graphics.off()
 
 
 
 
-#...................................................
-# mdr1
-#...................................................
-#.....................
-# N86Y
-#.....................
-plts_ehh_N86Y <- crossehhplotdf %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "N86Y") %>% #74,75,76 all same basically, can drop to 1
-  .$ehhplot
-
-plts_hap_N86Y <- haplotypes_sub %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mut_name == "N86Y") %>%
-  .$happlot
-
-jpeg(filename = "results/final_figures/haplotypeplots/N86Y_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
-cowplot::plot_grid(plts_ehh_N86Y[[1]],     plts_ehh_N86Y[[2]],
-                   plts_hap_N86Y[[1]],     plts_hap_N86Y[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
-graphics.off()
-
-
-#.....................
-# Y184F
-#.....................
-plts_ehh_Y184F <- crossehhplotdf %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "Y184F") %>% #74,75,76 all same basically, can drop to 1
-  .$ehhplot
-
-plts_hap_Y184F <- haplotypes_sub %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mut_name == "Y184F") %>%
-  .$happlot
-
-jpeg(filename = "results/final_figures/haplotypeplots/Y184F_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
-cowplot::plot_grid(plts_ehh_Y184F[[1]],     plts_ehh_Y184F[[2]],
-                   plts_hap_Y184F[[1]],     plts_hap_Y184F[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
-graphics.off()
+# #...................................................
+# # mdr1
+# #...................................................
+# #.....................
+# # N86Y
+# #.....................
+# plts_ehh_N86Y <- crossehhplotdf %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mutation == "N86Y") %>%
+#   .$ehhplot
+#
+# plts_hap_N86Y <- haplotypes_sub %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mut_name == "N86Y") %>%
+#   .$happlot
+#
+# jpeg(filename = "results/final_figures/haplotypeplots/N86Y_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+# cowplot::plot_grid(plts_ehh_N86Y[[1]],     plts_ehh_N86Y[[2]],
+#                    plts_hap_N86Y[[1]],     plts_hap_N86Y[[2]],
+#                    labels = letters[1:4], nrow = 2)
+# graphics.off()
+#
+#
+# #.....................
+# # Y184F
+# #.....................
+# plts_ehh_Y184F <- crossehhplotdf %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mutation == "Y184F") %>%
+#   .$ehhplot
+#
+# plts_hap_Y184F <- haplotypes_sub %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mut_name == "Y184F") %>%
+#   .$happlot
+#
+# jpeg(filename = "results/final_figures/haplotypeplots/Y184F_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+# cowplot::plot_grid(plts_ehh_Y184F[[1]],     plts_ehh_Y184F[[2]],
+#                    plts_hap_Y184F[[1]],     plts_hap_Y184F[[2]],
+#                    labels = letters[1:4], nrow = 2)
+# graphics.off()
 
 
 #.....................
@@ -410,7 +410,7 @@ graphics.off()
 #.....................
 plts_ehh_D1246Y <- crossehhplotdf %>%
   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "D1246Y") %>% #74,75,76 all same basically, can drop to 1
+  dplyr::filter(mutation == "D1246Y") %>%
   .$ehhplot
 
 plts_hap_D1246Y <- haplotypes_sub %>%
@@ -418,120 +418,144 @@ plts_hap_D1246Y <- haplotypes_sub %>%
   dplyr::filter(mut_name == "D1246Y") %>%
   .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/D1246Y_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+jpeg(filename = "results/final_figures/haplotypeplots/sup_fig12_D1246Y_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
 cowplot::plot_grid(plts_ehh_D1246Y[[1]],     plts_ehh_D1246Y[[2]],
                    plts_hap_D1246Y[[1]],     plts_hap_D1246Y[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
+                   labels = paste0(letters[1:4], ")"), nrow = 2)
 graphics.off()
 
 
 
 
-#...................................................
-# mdr2
-#...................................................
-#.....................
-# F423Y
-#.....................
-plts_ehh_F423Y <- crossehhplotdf %>%
+# #...................................................
+# # mdr2
+# #...................................................
+# #.....................
+# # F423Y
+# #.....................
+# plts_ehh_F423Y <- crossehhplotdf %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mutation == "F423Y") %>%
+#   .$ehhplot
+#
+# plts_hap_F423Y <- haplotypes_sub %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mut_name == "F423Y") %>%
+#   .$happlot
+#
+# jpeg(filename = "results/final_figures/haplotypeplots/F423Y_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+# cowplot::plot_grid(plts_ehh_F423Y[[1]],     plts_ehh_F423Y[[2]],
+#                    plts_hap_F423Y[[1]],     plts_hap_F423Y[[2]],
+#                    labels = letters[1:4], nrow = 2)
+# graphics.off()
+#
+# #.....................
+# # I492V
+# #.....................
+# plts_ehh_I492V <- crossehhplotdf %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mutation == "I492V") %>%
+#   .$ehhplot
+#
+# plts_hap_I492V <- haplotypes_sub %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mut_name == "I492V") %>%
+#   .$happlot
+#
+# jpeg(filename = "results/final_figures/haplotypeplots/I492V_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+# cowplot::plot_grid(plts_ehh_I492V[[1]],     plts_ehh_I492V[[2]],
+#                    plts_hap_I492V[[1]],     plts_hap_I492V[[2]],
+#                    labels = letters[1:4], nrow = 2)
+# graphics.off()
+#
+#
+#
+# #...................................................
+# # dhfr
+# #...................................................
+# #.....................
+# # N51I
+# #.....................
+# plts_ehh_N51I <- crossehhplotdf %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mutation == "N51I") %>%
+#   .$ehhplot
+#
+# plts_hap_N51I <- haplotypes_sub %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mut_name == "N51I") %>%
+#   .$happlot
+#
+# jpeg(filename = "results/final_figures/haplotypeplots/N51I_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+# cowplot::plot_grid(plts_ehh_N51I[[1]],     plts_ehh_N51I[[2]],
+#                    plts_hap_N51I[[1]],     plts_hap_N51I[[2]],
+#                    labels = letters[1:4], nrow = 2)
+# graphics.off()
+#
+#
+# #.....................
+# # C59R
+# #.....................
+# plts_ehh_C59R <- crossehhplotdf %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mutation == "C59R") %>%
+#   .$ehhplot
+#
+# plts_hap_C59R <- haplotypes_sub %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mut_name == "C59R") %>%
+#   .$happlot
+#
+# jpeg(filename = "results/final_figures/haplotypeplots/C59R_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+# cowplot::plot_grid(plts_ehh_C59R[[1]],     plts_ehh_C59R[[2]],
+#                    plts_hap_C59R[[1]],     plts_hap_C59R[[2]],
+#                    labels = letters[1:4], nrow = 2)
+# graphics.off()
+#
+# #.....................
+# # S108N
+# #.....................
+# plts_ehh_S108N <- crossehhplotdf %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mutation == "S108N") %>%
+#   .$ehhplot
+#
+# plts_hap_S108N <- haplotypes_sub %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mut_name == "S108N") %>%
+#   .$happlot
+#
+# jpeg(filename = "results/final_figures/haplotypeplots/S108N_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+# cowplot::plot_grid(plts_ehh_S108N[[1]],     plts_ehh_S108N[[2]],
+#                    plts_hap_S108N[[1]],     plts_hap_S108N[[2]],
+#                    labels = letters[1:4], nrow = 2)
+# graphics.off()
+
+#........................................
+# WRAP REMAINING EHH PLOTS
+#.....................................
+
+remaining_ehhplts <- crossehhplotdf %>%
   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "F423Y") %>%
+  dplyr::filter(! mutation %in% c("D1246Y", "M74I", "N75E", "K76T", "I356T", "G437A", "K540E", "A581G")) %>%
+  dplyr::arrange(name, mutation, region) %>%
   .$ehhplot
 
-plts_hap_F423Y <- haplotypes_sub %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mut_name == "F423Y") %>%
-  .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/F423Y_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
-cowplot::plot_grid(plts_ehh_F423Y[[1]],     plts_ehh_F423Y[[2]],
-                   plts_hap_F423Y[[1]],     plts_hap_F423Y[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
+remaining_ehhplts <- lapply(remaining_ehhplts, function(x){
+  ret <- x + theme(plot.title = element_text(hjust = 0.5, size = 6),
+                   axis.title = element_text(family = "Arial", size = 5.5),
+                   axis.text.y =  element_text(family = "Arial", size = 5.5, face = "plain"),
+                   axis.text.x =  element_text(family = "Arial", size = 5.5, angle = 45, face = "plain"),
+                   legend.title = element_text(family = "Arial", hjust = 0.5, vjust = 0.5, size = 5.5),
+                   legend.text = element_text(family = "Arial", hjust = 0.5, vjust = 0.5, size = 5))
+  return(ret)
+})
+
+jpeg(filename = "results/final_figures/haplotypeplots/sup_fig13_Remaining_EHH_plots.jpg", width = 11, height = 8, units = "in", res=800)
+cowplot::plot_grid(plotlist = remaining_ehhplts,
+                   labels = paste0(letters[1:16], ")"), nrow = 4, ncol=4, label_size = 10)
 graphics.off()
-
-#.....................
-# I492V
-#.....................
-plts_ehh_I492V <- crossehhplotdf %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "I492V") %>%
-  .$ehhplot
-
-plts_hap_I492V <- haplotypes_sub %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mut_name == "I492V") %>%
-  .$happlot
-
-jpeg(filename = "results/final_figures/haplotypeplots/I492V_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
-cowplot::plot_grid(plts_ehh_I492V[[1]],     plts_ehh_I492V[[2]],
-                   plts_hap_I492V[[1]],     plts_hap_I492V[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
-graphics.off()
-
-
-
-#...................................................
-# dhfr
-#...................................................
-#.....................
-# N51I
-#.....................
-plts_ehh_N51I <- crossehhplotdf %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "N51I") %>%
-  .$ehhplot
-
-plts_hap_N51I <- haplotypes_sub %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mut_name == "N51I") %>%
-  .$happlot
-
-jpeg(filename = "results/final_figures/haplotypeplots/N51I_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
-cowplot::plot_grid(plts_ehh_N51I[[1]],     plts_ehh_N51I[[2]],
-                   plts_hap_N51I[[1]],     plts_hap_N51I[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
-graphics.off()
-
-
-#.....................
-# C59R
-#.....................
-plts_ehh_C59R <- crossehhplotdf %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "C59R") %>%
-  .$ehhplot
-
-plts_hap_C59R <- haplotypes_sub %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mut_name == "C59R") %>%
-  .$happlot
-
-jpeg(filename = "results/final_figures/haplotypeplots/C59R_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
-cowplot::plot_grid(plts_ehh_C59R[[1]],     plts_ehh_C59R[[2]],
-                   plts_hap_C59R[[1]],     plts_hap_C59R[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
-graphics.off()
-
-#.....................
-# S108N
-#.....................
-plts_ehh_S108N <- crossehhplotdf %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "S108N") %>%
-  .$ehhplot
-
-plts_hap_S108N <- haplotypes_sub %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mut_name == "S108N") %>%
-  .$happlot
-
-jpeg(filename = "results/final_figures/haplotypeplots/S108N_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
-cowplot::plot_grid(plts_ehh_S108N[[1]],     plts_ehh_S108N[[2]],
-                   plts_hap_S108N[[1]],     plts_hap_S108N[[2]],
-                   labels = LETTERS[1:4], nrow = 2)
-graphics.off()
-
-
 
 
 

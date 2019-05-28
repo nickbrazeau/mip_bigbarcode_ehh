@@ -128,8 +128,8 @@ plothap <- function(hapdf, region, mut_name){
     theme_bw() +
     theme(plot.title = element_text(face = "bold", hjust = 0.5, size = 10),
           axis.title = element_text(face = "bold", hjust = 0.5, size = 8.5),
-          axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5, size = 3),
-          axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5, size = 3)
+          axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5, size = 3)
+       #   , axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5, size = 3)
     )
 }
 

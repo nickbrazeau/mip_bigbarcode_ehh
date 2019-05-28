@@ -50,7 +50,7 @@ mapmodels <- mapmodels %>%
                 ) %>%
   # clean up
   dplyr::select(c("chr", "lag_pos", "pos", "cM_slope", "cM_intercept")) %>%
-  dplyr::rename(start = lag_pos,
+  dplyr::rename(start = lag_pos + 1, # was doing inference on a 0-based, inclusive boundary system. Now add 1 to make it non-overlapping
                 end = pos)
 
 

@@ -45,10 +45,9 @@ putdrugres_xpehh_map <- putdrugres_xpehh %>%
 putdrugres_xpehh$crudexpehh <- as.numeric( purrr::pmap(putdrugres_xpehh_map, unnormalized_xpehh_derivedallele_logratio) )
 putdrugres_xpehh$scaledxpehh <- unlist( base::scale(putdrugres_xpehh$crudexpehh, center = T, scale = T) )
 
-putdrugres_xpehh$pprimexpehh_scale <- -log10(abs(dnorm(putdrugres_xpehh$scaledxpehh)))
-putdrugres_xpehh$statsig <- putdrugres_xpehh$pprimexpehh_scale < 0.05 |  putdrugres_xpehh$pprimexpehh_scale > 0.95 # (reciprocal because it is one sided p-value and depends on which was in the denominator E v. W or W. v E)
-
-
+putdrugres_xpehh$pprimexpehh_scale <- -log10(abs(1-pnorm(putdrugres_xpehh$scaledxpehh)))
+putdrugres_xpehh$pprimexpehh <- 10^-(putdrugres_xpehh$pprimexpehh_scale)
+putdrugres_xpehh$statsig <- putdrugres_xpehh$pprimexpehh < 0.05 | putdrugres_xpehh$pprimexpehh > 0.95 # since these are symmetrical properties
 
 putdrugres_xpehh %>%
   dplyr::filter(!is.na(pprimexpehh_scale)) %>%
