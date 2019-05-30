@@ -4,7 +4,7 @@
 # as well as to subset to samples with no missingness. The rehh package stops
 # "considering" a haplotype as soon as it hits its first missing base pair. This
 # (logical) effect can affect the monotonicity of the EHH decay. Would have needed to impute
-# (which is complicated given MOI affecting our AF/LD calculations and limited monoclonal samples) or drop them
+# (which is complicated given MOI affecting our AF/LD calculations and limited monoclonal samples) or drop them, so have dropped missing samples
 #-------------------------------------------------------------------------------------------------------
 
 #.................................
@@ -20,7 +20,7 @@ library(rehh)
 
 mipDRpanel <- readRDS("data/raw_snps_filtered/dr_monoclonal.rds") # just for checks later
 mipbb_dr_panel_vcfR <- vcfR::read.vcfR(file = "data/derived/vcfs/polarized_mipbi_drugres_bigbarcode_panels.vcf.bgz")
-mipbb_dr_panel_vcfR@gt[mipbb_dr_panel_vcfR@gt == "./.:.:."] <- NA # import issue. See "issue#1" in vcfdo https://github.com/IDEELResearch/vcfdo/issues/1
+mipbb_dr_panel_vcfR@gt[mipbb_dr_panel_vcfR@gt == "./.:.:."] <- NA # import issue. See "issue#1" in vcfdo https://github.com/IDEELResearch/vcfdo/issues/1 but resolved because issue lies with variant calling...either way, should be NA
 #-------------------------------------------------------------------------------------------------------------------------------
 # datawrangle
 #-------------------------------------------------------------------------------------------------------------------------------

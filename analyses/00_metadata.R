@@ -6,7 +6,7 @@ library(rplasmodium)
 library(vcfR)
 library(tidyverse)
 library(stringr)
-library(GenomicRanges)
+library(fuzzyjoin)
 
 #--------------------------------------------------------------
 # Metadata files
@@ -52,7 +52,7 @@ mapmodels <- mapmodels %>%
   dplyr::select(c("chr", "lag_pos", "pos", "cM_slope", "cM_intercept")) %>%
   dplyr::rename(start = lag_pos,
                 end = pos) %>%
-  dplyr::mutate(start = start + 1) # was doing inference on a 0-based, inclusive boundary system. Now add 1 to make it non-overlapping)
+  dplyr::mutate(start = start + 1) # was doing inference on a 0-based, inclusive boundary system. Now add 1 to make it non-overlapping/1-based to match with VCF
 
 
 
@@ -86,14 +86,15 @@ if(any(drugres$start < 0)){
   drugres$start[ which( drugres$start < 0 ) ] <- 0
 }
 
-drugends <- aggregate(drugres$end, list(factor(drugres$chr)), max)
+drugends <- drugres %>%
+  dplyr::select(c("chr", "gene_symbol", "end"))
 colnames(drugends)[1] <- "CHROM"
 chromends <- tibble(chr = names( rplasmodium::chromsizes_3d7()),
                     chromend =  rplasmodium::chromsizes_3d7())
 ( drugends <- chromends %>%
     dplyr::rename(CHROM = chr) %>%
     dplyr::left_join(drugends, .) %>%
-  dplyr::mutate(offend = x > chromend) )
+  dplyr::mutate(offend = end > chromend) )
 if(any(drugends$offend)){
   warning("Have mapped beyone the end of the chromosome; automatic fix to end of chromosome")
 

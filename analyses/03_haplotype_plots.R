@@ -1,7 +1,5 @@
 #-------------------------------------------------------------------------------------------------------
-# Purpose of this script is to make haplotype plots for
-# crt loci 76T and the dhps 437 540 and 581 loci
-# with all samples, not just those with no missing data
+# Purpose of this script is to make haplotype plots for all samples, not just those with no missing data
 #-------------------------------------------------------------------------------------------------------
 source("R/01-EHH_tools.R")
 source("analyses/00_metadata.R")

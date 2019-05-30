@@ -30,14 +30,22 @@ biallelic_sites <- !stringr::str_detect(mipDRpanel$loci$ALT, ",")  # this works 
 mipDRpanel$loci <- mipDRpanel$loci[biallelic_sites, ]
 mipDRpanel$coverage <- mipDRpanel$coverage[,biallelic_sites]
 mipDRpanel$counts <- mipDRpanel$counts[1,,biallelic_sites] # this is the wsraf which is typically stored in the biallelic mip analyzer object
-# not in this RDS, NA is both 0 and missing. Will set to 0 for referent allele freq if there is coverage at that site
-mipDRpanel$counts[ is.na(mipDRpanel$counts) ] <- 0
-mipDRpanel$counts[ is.na(mipDRpanel$coverage) ] <- NA
+# note in this RDS, NA is both 0 and missing. Will set to 0 for referent allele freq if there is coverage at that site
+mipDRpanel$counts[ is.na(mipDRpanel$counts) ] <- 0 # first make all NA sites to 0
+mipDRpanel$counts[ is.na(mipDRpanel$coverage) ] <- NA # then if there is no coverage at that site, write over to NA since it should be coded as missing
 
 # TODO -- ask Bob to fix for consistency with big-barcode
+# raw example vs fixed
 mipDRpanel_raw <- readRDS("data/raw_snps_filtered/dr_monoclonal.rds")
+mipDRpanel_raw$loci[241,]
 mipDRpanel_raw$counts[,,241]
 mipDRpanel_raw$coverage[,241]
+
+
+fxexample <- which(paste0(mipDRpanel_raw$loci[241,1],mipDRpanel_raw$loci[241,2]) == paste0(mipDRpanel$loci$CHROM, mipDRpanel$loci$POS))
+mipDRpanel$counts[,fxexample]
+mipDRpanel$coverage[,fxexample]
+
 
 
 class(mipDRpanel) <- "mipanalyzer_biallelic"
@@ -51,7 +59,7 @@ if(
   stop("Incompatibility between big panel vcf and dr panel vcf")
 }
 
-# TODO DUPLICATED SAMPLES need to fix (doesn't affect this project bc we are not looking at Uganda in this analysis)
+# eyeball test for smpl agreement
 mipDRpanel$samples$ID[ mipDRpanel$samples$ID %in% mipbigpanel$samples$ID ]
 mipbigpanel$samples$ID[ mipbigpanel$samples$ID %in% mipDRpanel$samples$ID ]
 
@@ -59,13 +67,6 @@ mipbigpanel$samples$ID[ mipbigpanel$samples$ID %in% mipDRpanel$samples$ID ]
 mipbigpanel_sub <- MIPanalyzer::filter_samples(mipbigpanel, c( mipbigpanel$samples$ID %in% mipDRpanel$samples$ID ),
                                                description = "Drop BB Samples to DR filtered Samples")
 
-# TEMPORARY
-mipbigpanel_sub <- MIPanalyzer::filter_samples(mipbigpanel_sub, c( !grepl("246", mipbigpanel_sub$samples$ID  )),
-                           description = "TEMPORARY DROP")
-
-
-mipDRpanel <- MIPanalyzer::filter_samples(mipDRpanel, c( !grepl("246", mipDRpanel$samples$ID  )),
-                                               description = "TEMPORARY DROP")
 
 #.................................
 # error handle the overlapping sites
@@ -81,7 +82,7 @@ if(any(
 mipBB_sub_repeats_loci <- which( paste0(mipbigpanel_sub$loci[,1], mipbigpanel_sub$loci[,2]) %in% paste0(mipDRpanel$loci[,1], mipDRpanel$loci[,2]) )
 mipDR_sub_repeats_loci <- which( paste0(mipDRpanel$loci[,1], mipDRpanel$loci[,2]) %in%  paste0(mipbigpanel_sub$loci[,1], mipbigpanel_sub$loci[,2]) )
 
-# confirm they are arrenaged the same way
+# confirm they are arranged in the same way
 mipbigpanel_sub$loci[mipBB_sub_repeats_loci, c("CHROM", "POS")]
 mipDRpanel$loci[mipDR_sub_repeats_loci, c("CHROM", "POS")]
 
