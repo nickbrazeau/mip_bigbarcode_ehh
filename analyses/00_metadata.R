@@ -1,7 +1,7 @@
 #.................................
 # Dependencies
 #.................................
-devtools::install_github("andrewparkermorgan/rplasmodium")
+devtools::install_github("andrewparkermorgan/rplasmodium", ref = "bc0801326ddf7ab99f961a8b9d58416baad9a258") # until PR is accepted
 library(rplasmodium)
 library(vcfR)
 library(tidyverse)
@@ -63,7 +63,21 @@ mapmodels <- mapmodels %>%
 #.................................
 
 drugres <- rplasmodium::pf_3d7_PutDrugRxSites
+# TODO temporary addition until PR request is accepted
+
+temp <- tibble(chr = "Pf3D7_01_v3",
+               start = 265207,
+               end = 269173,
+               gene_symbol = "pfatp6",
+               score = ".",
+               strand = "-",
+               gene_id = "PF3D7_0106300")
+drugres <- dplyr::bind_rows(drugres, temp)
+
+
 drugres$start <- drugres$start + 1 # take to 1-based, vcfs are 1-based (in bed format)
+
+
 
 drugres <- drugres %>%
   dplyr::filter(chr != "Pf_M76611")  # no recombo in mtdna, no EHH
@@ -110,5 +124,5 @@ drugres <- drugres %>%
                 name = gene_symbol) # for legacy reasons
 
 # clean up
-rm(drugends)
+rm(drugends, temp)
 

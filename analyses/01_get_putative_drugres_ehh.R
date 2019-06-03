@@ -213,10 +213,14 @@ putative_drugsites  <- read_csv("data/Supplemental Table 2_ Drug resistance MIP 
   dplyr::left_join(x=., y=chromliftover, by = "chrom") %>%
   dplyr::mutate(snpname = paste0(CHROM, "_", pos)) %>%
   dplyr::select(c("gene", "mut_name", "snpname")) %>%
-  dplyr::mutate(gene = ifelse(gene == "dhfr-ts", "dhfr", gene)) %>%
+  dplyr::mutate(gene = ifelse(gene == "dhfr-ts", "dhfr", gene),
+                gene = ifelse(gene == "k13", "kelch", gene),
+                gene = ifelse(gene == "atp6", "pfatp6", gene)) %>%
   dplyr::rename(name = gene)
 
-
+if(!all(putative_drugsites$name %in% drugregions_sub$name)){
+  stop("There is a conflict in the names in the putative drug resistance file (supp table 2) and the drug regions vcf map that you have made")
+}
 
 drugregions_sub <- drugregions_sub %>%
   dplyr::left_join(., putative_drugsites, by = "name") %>%
@@ -245,7 +249,8 @@ drugregions_sub$marker <- unlist( purrr::pmap(drugregions_sub[,c("haplohh", "snp
 check <- drugregions_sub %>%
   dplyr::filter(is.na(marker))
 # multiallelic
-mipDRpanel$loci[mipDRpanel$loci$CHROM %in% paste0("chr", check$chrom_fct) & mipDRpanel$loci$POS == 404407, ] # manual check here since pos is in cM now
+mipDRpanel$loci[mipDRpanel$loci$CHROM %in% paste0("chr", check$chrom_fct[1]) & mipDRpanel$loci$POS == 404407, ] # manual check here since pos is in cM now
+mipDRpanel$loci[mipDRpanel$loci$CHROM %in% paste0("chr", check$chrom_fct[2]) & mipDRpanel$loci$POS == 267882, ] # manual check here since pos is in cM now
 
 #......................
 # Subset marker (missing ones are non-biallelics)

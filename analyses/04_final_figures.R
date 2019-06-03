@@ -223,7 +223,8 @@ drc2.2_K76T_ehhdecay <- crossehhplotdf %>%
 drc2.2_K76T_ehhdecay <- drc2.2_K76T_ehhdecay[[1]] + ggtitle("K76T in DRC-West")
 
 
-jpeg(file = "results/final_figures/figure7_K76T_DRC_EvW_EHH_Bifur.jpg", width = 11, height = 8, units = "in", res = 800)
+svglite::svglite(file = "results/final_figures/figure7_K76T_DRC_EvW_EHH_Bifur.svg",
+                 width = 11, height = 8)
 cowplot::plot_grid(drc1.2_K76T_ehhdecay, drc2.2_K76T_ehhdecay,
                    bifur_crt_K76T_drc1.2_spiderplot, bifur_crt_K76T_drc2.2_spiderplot,
                    labels = paste0(letters[1:4], ")"), ncol = 2)
@@ -242,7 +243,8 @@ drc2.2_K540E_ehhdecay <-  crossehhplotdf %>%
   .$ehhplot
 drc2.2_K540E_ehhdecay <- drc2.2_K540E_ehhdecay[[1]] + ggtitle("EHH Decay Plot for K540E in DRC-West")
 
-jpeg(file = "results/final_figures/K540E_DRC_EvW_EHH_Bifur.jpg", width = 11, height = 8, units = "in", res = 800)
+svglite::svglite(file = "results/final_figures/K540E_DRC_EvW_EHH_Bifur.svg",
+                 width = 11, height = 8)
 cowplot::plot_grid(drc1.2_K540E_ehhdecay, drc2.2_K540E_ehhdecay,
                    bifur_dhps_drc1.2_spiderplot, bifur_dhps_drc2.2_spiderplot,
                    labels = paste0(letters[1:4], ")"), ncol = 2)
@@ -290,7 +292,8 @@ plts_hap_I356T <- haplotypes_sub %>%
   dplyr::filter(mut_name == "I356T") %>%
   .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/sup_fig8_I356T_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+svglite::svglite(file = "results/final_figures/haplotypeplots/sup_fig8_I356T_all_monohaplotypes_plots.svg",
+                 width = 11, height = 8)
 cowplot::plot_grid(plts_ehh_I356T[[1]],     plts_ehh_I356T[[2]],
                    plts_hap_I356T[[1]],     plts_hap_I356T[[2]],
                    labels = paste0(letters[1:4], ")"), nrow = 2)
@@ -312,7 +315,8 @@ plts_hap_G437A <- haplotypes_sub %>%
   dplyr::filter(mut_name == "G437A") %>%
   .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/sup_fig11_G437A_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+svglite::svglite(file = "results/final_figures/haplotypeplots/sup_fig11_G437A_all_monohaplotypes_plots.svg",
+                 width = 11, height = 8)
 cowplot::plot_grid(plts_ehh_G437A[[1]],     plts_ehh_G437A[[2]],
                    plts_hap_G437A[[1]],     plts_hap_G437A[[2]],
                    labels = paste0(letters[1:4], ")"), nrow = 2)
@@ -332,7 +336,8 @@ plts_hap_K540E <- haplotypes_sub %>%
   dplyr::filter(mut_name == "K540E") %>%
   .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/sup_fig10_K540E_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+svglite::svglite(file = "results/final_figures/haplotypeplots/sup_fig10_K540E_all_monohaplotypes_plots.svg",
+                 width = 11, height = 8 )
 cowplot::plot_grid(plts_ehh_K540E[[1]],     plts_ehh_K540E[[2]],
                    plts_hap_K540E[[1]],     plts_hap_K540E[[2]],
                    labels = paste0(letters[1:4], ")"), nrow = 2)
@@ -353,7 +358,8 @@ plts_hap_A581G <- haplotypes_sub %>%
   dplyr::filter(mut_name == "A581G") %>%
   .$happlot
 
-jpeg(filename = "results/final_figures/haplotypeplots/sup_fig9_A581G_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+svglite::svglite(file = "results/final_figures/haplotypeplots/sup_fig9_A581G_all_monohaplotypes_plots.svg",
+                 width = 11, height = 8 )
 cowplot::plot_grid(plts_ehh_A581G[[1]],     plts_ehh_A581G[[2]],
                    plts_hap_A581G[[1]],     plts_hap_A581G[[2]],
                    labels = paste0(letters[1:4], ")"), nrow = 2)
@@ -403,26 +409,26 @@ graphics.off()
 #                    plts_hap_Y184F[[1]],     plts_hap_Y184F[[2]],
 #                    labels = letters[1:4], nrow = 2)
 # graphics.off()
-
-
-#.....................
-# D1246Y
-#.....................
-plts_ehh_D1246Y <- crossehhplotdf %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mutation == "D1246Y") %>%
-  .$ehhplot
-
-plts_hap_D1246Y <- haplotypes_sub %>%
-  dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
-  dplyr::filter(mut_name == "D1246Y") %>%
-  .$happlot
-
-jpeg(filename = "results/final_figures/haplotypeplots/sup_fig12_D1246Y_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
-cowplot::plot_grid(plts_ehh_D1246Y[[1]],     plts_ehh_D1246Y[[2]],
-                   plts_hap_D1246Y[[1]],     plts_hap_D1246Y[[2]],
-                   labels = paste0(letters[1:4], ")"), nrow = 2)
-graphics.off()
+#
+#
+# #.....................
+# # D1246Y
+# #.....................
+# plts_ehh_D1246Y <- crossehhplotdf %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mutation == "D1246Y") %>%
+#   .$ehhplot
+#
+# plts_hap_D1246Y <- haplotypes_sub %>%
+#   dplyr::filter(region %in% c("DRC-East", "DRC-West")) %>%
+#   dplyr::filter(mut_name == "D1246Y") %>%
+#   .$happlot
+#
+# jpeg(filename = "results/final_figures/haplotypeplots/D1246Y_all_monohaplotypes_plots.jpg", width = 11, height = 8, units = "in", res=800)
+# cowplot::plot_grid(plts_ehh_D1246Y[[1]],     plts_ehh_D1246Y[[2]],
+#                    plts_hap_D1246Y[[1]],     plts_hap_D1246Y[[2]],
+#                    labels = paste0(letters[1:4], ")"), nrow = 2)
+# graphics.off()
 
 
 
@@ -552,7 +558,8 @@ remaining_ehhplts <- lapply(remaining_ehhplts, function(x){
   return(ret)
 })
 
-jpeg(filename = "results/final_figures/haplotypeplots/sup_fig13_Remaining_EHH_plots.jpg", width = 11, height = 8, units = "in", res=800)
+svglite::svglite(file = "results/final_figures/haplotypeplots/sup_fig12_Remaining_EHH_plots.svg",
+                 width = 11, height = 8)
 cowplot::plot_grid(plotlist = remaining_ehhplts,
                    labels = paste0(letters[1:16], ")"), nrow = 4, ncol=4, label_size = 10)
 graphics.off()
@@ -564,7 +571,8 @@ graphics.off()
 #------------------------------------------------------------------------------------------------------------------------------------------------------------
 putdrugres_xpehh <- readRDS("data/derived/02-putdrugres_xpehh.rds")
 
-jpeg(filename = "results/final_figures/XP-EHHStats.jpg", width = 11, height = 8, units = "in", res=800)
+svglite::svglite(file = "results/final_figures/XP-EHHStats.svg",
+                 width = 11, height = 8)
 putdrugres_xpehh %>%
   dplyr::filter(!is.na(pprimexpehh_scale)) %>%
   ggplot() +

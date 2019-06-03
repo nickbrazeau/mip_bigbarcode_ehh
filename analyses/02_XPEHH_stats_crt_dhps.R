@@ -71,6 +71,7 @@ saveRDS(object = putdrugres_xpehh, file = "data/derived/02-putdrugres_xpehh.rds"
 
 putdrugres_xpehh %>%
   dplyr::select(-c("haplohh.x", "haplohh.y")) %>%
+  dplyr::mutate_if(is.numeric, round, 2) %>%
   write_csv(x= ., path = "results/final_tables/putdrugres_xpehh_DRC_EvW.csv")
 
 # JUST TWO SITES, SO NO NEED for distance matrix anymore
