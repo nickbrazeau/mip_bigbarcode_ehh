@@ -69,9 +69,11 @@ regions <- mc %>%
 regions$smpls <- purrr::map(regions$data, "id")
 
 regions <- regions %>%
+  dplyr::ungroup(region) %>%
   dplyr::mutate(region = ifelse(region == "DRC1.2", "DRC-East",
                                 ifelse(region == "DRC2.2", "DRC-West", as.character( region) )),
-                region = factor(region))
+                region = factor(region)) %>%
+  dplyr::group_by(region) # need to ungroup so we can edit it and then regroup for posterity
 
 
 regionlong <- do.call("rbind", lapply(1:nrow(drugres), function(x){
